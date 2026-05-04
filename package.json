@@ -51,6 +51,7 @@
     "asar": true,
     "artifactName": "Local-OCR-${os}-${arch}.${ext}",
     "mac": {
+      "identity": null,
       "category": "public.app-category.productivity",
       "target": [
         "dmg",

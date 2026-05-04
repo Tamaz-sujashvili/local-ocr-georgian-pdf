@@ -71,6 +71,12 @@ xattr -dr com.apple.quarantine "/Applications/Local OCR.app"
 
 If you opened it directly from Downloads instead of Applications, point the command at that copy instead.
 
+If the error persists, the app bundle signature is likely broken by download/extraction. Re-sign it locally and retry:
+
+```bash
+codesign --force --deep --sign - "/Applications/Local OCR.app"
+```
+
 ### Windows
 
 1. Install Docker Desktop.
@@ -159,7 +165,7 @@ The workflow will:
 
 Workflow file:
 
-[.github/workflows/desktop-release.yml](/Users/tazo/Documents/Codex/2026-05-04/the-best-open-source-setup-for/.github/workflows/desktop-release.yml)
+[.github/workflows/desktop-release.yml](.github/workflows/desktop-release.yml)
 
 ## Stack
 
