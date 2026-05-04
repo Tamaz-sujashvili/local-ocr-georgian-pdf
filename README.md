@@ -2,6 +2,19 @@
 
 Local OCR is a desktop-first OCR tool for scanned PDFs with automatic unlock, Georgian OCR, and downloadable searchable output.
 
+## Download
+
+Download directly from the repository front page:
+
+- macOS Apple Silicon `.dmg`: [Download Local OCR for macOS](https://github.com/suja-labarum/local-ocr-georgian-pdf/releases/latest/download/Local-OCR-mac-arm64.dmg)
+- macOS Apple Silicon `.zip`: [Download zipped macOS app](https://github.com/suja-labarum/local-ocr-georgian-pdf/releases/latest/download/Local-OCR-mac-arm64.zip)
+- Windows `.exe`: [Download Local OCR for Windows](https://github.com/suja-labarum/local-ocr-georgian-pdf/releases/latest/download/Local-OCR-win-x64.exe)
+- All release files: [Latest release page](https://github.com/suja-labarum/local-ocr-georgian-pdf/releases/latest)
+
+Install `Docker Desktop` first:
+
+- macOS / Windows: [Docker Desktop](https://www.docker.com/products/docker-desktop/)
+
 The project now ships in two forms:
 
 1. A native desktop wrapper for macOS and Windows.
@@ -29,7 +42,7 @@ Desktop builds are intended to be distributed through GitHub Releases.
 Release artifacts:
 
 - macOS: `.dmg` and `.zip`
-- Windows: `.exe` installer and portable `.exe`
+- Windows: `.exe` installer
 
 Important:
 
@@ -49,7 +62,7 @@ Important:
 ### Windows
 
 1. Install Docker Desktop.
-2. Download the latest Windows `.exe` release asset from GitHub Releases.
+2. Download the Windows `.exe` from the links at the top of this repository.
 3. Open the app.
 4. If Windows SmartScreen warns about an unsigned app, choose more info and run it anyway.
 

@@ -1,16 +1,16 @@
 {
   "name": "local-ocr-georgian-pdf",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Desktop and local OCR app for scanned PDFs with Georgian Tesseract OCR.",
   "main": "desktop/main.js",
   "author": "tazo",
   "license": "MIT",
   "scripts": {
     "desktop:dev": "electron .",
-    "desktop:pack": "electron-builder --dir",
-    "desktop:build": "electron-builder --mac dmg zip --win nsis portable",
-    "desktop:build:mac": "electron-builder --mac dmg zip",
-    "desktop:build:win": "electron-builder --win nsis portable"
+    "desktop:pack": "electron-builder --dir --publish never",
+    "desktop:build": "electron-builder --mac dmg zip --win nsis --publish never",
+    "desktop:build:mac": "electron-builder --mac dmg zip --publish never",
+    "desktop:build:win": "electron-builder --win nsis --publish never"
   },
   "build": {
     "appId": "com.localocr.app",
@@ -49,7 +49,7 @@
       }
     ],
     "asar": true,
-    "artifactName": "${productName}-${version}-${os}-${arch}.${ext}",
+    "artifactName": "Local-OCR-${os}-${arch}.${ext}",
     "mac": {
       "category": "public.app-category.productivity",
       "target": [
@@ -59,8 +59,7 @@
     },
     "win": {
       "target": [
-        "nsis",
-        "portable"
+        "nsis"
       ]
     },
     "nsis": {
