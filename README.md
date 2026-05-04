@@ -59,6 +59,14 @@ Important:
 3. Open the app.
 4. If macOS warns that the app is unsigned, allow it in System Settings and open it again.
 
+If macOS says the app is "damaged", remove the quarantine flag and open it again:
+
+```bash
+xattr -dr com.apple.quarantine "/Applications/Local OCR.app"
+```
+
+If you opened it directly from Downloads instead of Applications, point the command at that copy instead.
+
 ### Windows
 
 1. Install Docker Desktop.
@@ -196,7 +204,8 @@ Workflow file:
 - The app runs entirely on the user's machine.
 - Uploaded PDFs are processed in temporary directories.
 - The desktop shell currently requires Docker Desktop instead of bundling OCR binaries directly into the installer.
-- macOS and Windows builds are unsigned by default unless signing credentials are added later.
+- Windows builds are unsigned by default unless signing credentials are added later.
+- macOS builds are not notarized by Apple unless Developer ID signing and notarization are added later.
 
 ## License
 
