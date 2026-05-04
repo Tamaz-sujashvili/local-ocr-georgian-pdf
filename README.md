@@ -1,5 +1,9 @@
 # Local OCR
 
+[![Download macOS DMG](https://img.shields.io/badge/Download-macOS%20DMG-black?style=for-the-badge&logo=apple)](https://github.com/suja-labarum/local-ocr-georgian-pdf/releases/latest/download/Local-OCR-mac-arm64.dmg)
+[![Download macOS ZIP](https://img.shields.io/badge/Download-macOS%20ZIP-grey?style=for-the-badge&logo=apple)](https://github.com/suja-labarum/local-ocr-georgian-pdf/releases/latest/download/Local-OCR-mac-arm64.zip)
+[![Download Windows EXE](https://img.shields.io/badge/Download-Windows%20EXE-blue?style=for-the-badge&logo=windows)](https://github.com/suja-labarum/local-ocr-georgian-pdf/releases/latest/download/Local-OCR-win-x64.exe)
+
 Local OCR is a desktop-first OCR tool for scanned PDFs with automatic unlock, Georgian OCR, and downloadable searchable output.
 
 ## Download
