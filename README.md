@@ -46,6 +46,72 @@ Open:
 
 [http://localhost:8765](http://localhost:8765)
 
+## Free Hosting
+
+This app is not suitable for GitHub Pages because GitHub Pages only hosts static files, while Local OCR needs a running Python server and OCR binaries. GitHub's docs describe Pages as a static hosting service.
+
+### Option 1: Hugging Face Spaces
+
+This is the easiest free public deployment path for this project because official Spaces docs support Docker apps, and the Spaces overview currently lists `CPU Basic` as free with `2 vCPU`, `16 GB` RAM, and `50 GB` ephemeral disk.
+
+1. Create a new Space on Hugging Face.
+2. Choose `Docker` as the SDK.
+3. Push this repository to the Space repository.
+4. Add this YAML block at the top of the Space `README.md`:
+
+```yaml
+---
+title: Local OCR
+emoji: 📄
+colorFrom: orange
+colorTo: red
+sdk: docker
+app_port: 8765
+---
+```
+
+5. Let the Space build the existing `Dockerfile`.
+
+Notes:
+
+- Free Spaces can sleep when idle.
+- Disk is not persistent, which is fine for this app because uploads are temporary.
+- Public uploads go through a third-party host, so this is not ideal for sensitive PDFs.
+
+### Option 2: Google Cloud Run
+
+Cloud Run is more production-like. Official Google Cloud docs currently show an always-free tier for Cloud Run, but it still requires a Google Cloud project and billing setup.
+
+1. Install the Google Cloud CLI.
+2. Authenticate:
+
+```bash
+gcloud auth login
+gcloud config set project YOUR_PROJECT_ID
+```
+
+3. Build and submit the container:
+
+```bash
+gcloud builds submit --tag gcr.io/YOUR_PROJECT_ID/local-ocr
+```
+
+4. Deploy it publicly:
+
+```bash
+gcloud run deploy local-ocr \
+  --image gcr.io/YOUR_PROJECT_ID/local-ocr \
+  --platform managed \
+  --region us-central1 \
+  --allow-unauthenticated
+```
+
+Notes:
+
+- I updated the app to honor the `PORT` environment variable, which Cloud Run expects.
+- You may still get charges if usage goes beyond the free tier.
+- This is the better option if you want a stable URL and later add a custom domain.
+
 ## Usage
 
 ### Standard OCR
