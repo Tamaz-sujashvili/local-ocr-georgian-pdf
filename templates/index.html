@@ -1,0 +1,932 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Local OCR</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        --font-sans: Inter, Geist, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        --font-mono: "SF Mono", "Roboto Mono", ui-monospace, monospace;
+        --bg: #fbf7f2;
+        --surface: #f4ede4;
+        --surface-strong: #fffdf9;
+        --surface-tint: rgba(204, 120, 92, 0.08);
+        --border: #e7dccf;
+        --border-strong: #d8b39b;
+        --text: #111827;
+        --text-muted: #6f6257;
+        --accent: #cc785c;
+        --accent-strong: #b85f41;
+        --accent-soft: rgba(204, 120, 92, 0.12);
+        --success: #15803d;
+        --success-soft: rgba(21, 128, 61, 0.08);
+        --danger: #dc2626;
+        --danger-soft: rgba(220, 38, 38, 0.08);
+        --shadow: 0 18px 48px rgba(86, 52, 33, 0.08);
+        --radius-card: 16px;
+        --radius-control: 8px;
+        --radius-chip: 6px;
+        --nav-height: 56px;
+        --transition: 150ms ease;
+      }
+
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #171310;
+          --surface: #221b17;
+          --surface-strong: #1d1713;
+          --surface-tint: rgba(234, 157, 124, 0.14);
+          --border: #3a2e28;
+          --border-strong: rgba(234, 157, 124, 0.55);
+          --text: #f8f3ed;
+          --text-muted: #b2a59a;
+          --accent: #ea9d7c;
+          --accent-strong: #f2b08d;
+          --accent-soft: rgba(234, 157, 124, 0.18);
+          --success: #4ade80;
+          --success-soft: rgba(74, 222, 128, 0.14);
+          --danger: #f87171;
+          --danger-soft: rgba(248, 113, 113, 0.14);
+          --shadow: 0 18px 48px rgba(0, 0, 0, 0.42);
+        }
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html {
+        scroll-behavior: smooth;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: var(--font-sans);
+        background: linear-gradient(180deg, var(--bg) 0%, var(--surface) 100%);
+        color: var(--text);
+      }
+
+      button,
+      input,
+      select,
+      summary {
+        font: inherit;
+      }
+
+      .shell {
+        width: min(720px, calc(100vw - 48px));
+        margin: 0 auto;
+        padding: calc(var(--nav-height) + 80px) 0 96px;
+      }
+
+      .topbar {
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        height: var(--nav-height);
+        display: flex;
+        align-items: center;
+        backdrop-filter: blur(12px);
+        background: color-mix(in srgb, var(--bg) 88%, transparent);
+        border-bottom: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
+      }
+
+      .topbar__inner {
+        width: min(1200px, calc(100vw - 48px));
+        margin: 0 auto;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+      }
+
+      .brand {
+        display: inline-flex;
+        align-items: center;
+        gap: 12px;
+        font-size: 15px;
+        font-weight: 600;
+        color: var(--text);
+      }
+
+      .brand__mark {
+        width: 28px;
+        height: 28px;
+        display: grid;
+        place-items: center;
+        border-radius: 9px;
+        background: linear-gradient(135deg, var(--accent), var(--accent-strong));
+        color: #ffffff;
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16);
+      }
+
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 12px;
+        border-radius: 999px;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        color: var(--text-muted);
+        font-size: 13px;
+        font-weight: 600;
+      }
+
+      .hero,
+      .upload-card,
+      .info-panel {
+        width: 100%;
+      }
+
+      .hero {
+        display: grid;
+        gap: 16px;
+        margin-bottom: 32px;
+      }
+
+      .section-label {
+        margin: 0;
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--accent);
+        letter-spacing: 0.02em;
+      }
+
+      .hero h1 {
+        margin: 0;
+        font-size: 36px;
+        line-height: 1.08;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+      }
+
+      .hero p {
+        margin: 0;
+        max-width: 58ch;
+        font-size: 16px;
+        line-height: 1.65;
+        color: var(--text-muted);
+      }
+
+      .upload-card,
+      .info-panel {
+        background: var(--surface-strong);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-card);
+        box-shadow: var(--shadow);
+      }
+
+      .upload-card {
+        padding: 24px;
+        display: grid;
+        gap: 18px;
+        margin-bottom: 24px;
+      }
+
+      .dropzone {
+        position: relative;
+        display: grid;
+        place-items: center;
+        min-height: 280px;
+        padding: 32px 24px;
+        text-align: center;
+        background: var(--surface);
+        border: 2px dashed var(--border);
+        border-radius: var(--radius-card);
+        cursor: pointer;
+        transition:
+          border-color var(--transition),
+          background-color var(--transition),
+          transform var(--transition),
+          box-shadow var(--transition);
+      }
+
+      .dropzone:hover,
+      .dropzone:focus-within,
+      .dropzone.is-dragging {
+        border-color: var(--accent);
+        background: var(--surface-tint);
+        transform: translateY(-1px);
+        box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 10%, transparent);
+      }
+
+      .dropzone.is-error {
+        border-color: var(--danger);
+        background: var(--danger-soft);
+        box-shadow: 0 0 0 4px color-mix(in srgb, var(--danger) 10%, transparent);
+      }
+
+      .dropzone.is-success {
+        border-color: var(--success);
+        background: var(--success-soft);
+        box-shadow: 0 0 0 4px color-mix(in srgb, var(--success) 10%, transparent);
+      }
+
+      .dropzone__input {
+        position: absolute;
+        inset: 0;
+        opacity: 0;
+        cursor: pointer;
+      }
+
+      .dropzone__content {
+        display: grid;
+        gap: 14px;
+        justify-items: center;
+      }
+
+      .dropzone__icon,
+      .state-icon {
+        width: 32px;
+        height: 32px;
+        color: var(--accent);
+      }
+
+      .dropzone__title,
+      .state-title {
+        margin: 0;
+        font-size: 20px;
+        font-weight: 700;
+      }
+
+      .dropzone__subtitle,
+      .state-subtitle,
+      .helper,
+      .error-message,
+      .success-message {
+        margin: 0;
+        font-size: 14px;
+        line-height: 1.6;
+        color: var(--text-muted);
+      }
+
+      .file-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 12px;
+        border-radius: 999px;
+        background: var(--surface-strong);
+        border: 1px solid var(--border);
+        color: var(--text);
+        font-size: 14px;
+        font-weight: 500;
+      }
+
+      .processing-steps {
+        display: inline-flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        justify-content: center;
+      }
+
+      .step-chip {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 7px 11px;
+        border-radius: 999px;
+        background: var(--surface-strong);
+        border: 1px solid var(--border);
+        color: var(--text-muted);
+        font-size: 13px;
+        font-weight: 600;
+        transition: all var(--transition);
+      }
+
+      .step-chip.is-active {
+        border-color: var(--accent);
+        color: var(--accent);
+        background: var(--accent-soft);
+      }
+
+      .spinner {
+        width: 34px;
+        height: 34px;
+        border-radius: 50%;
+        border: 3px solid color-mix(in srgb, var(--accent) 18%, transparent);
+        border-top-color: var(--accent);
+        animation: spin 900ms linear infinite;
+      }
+
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      .upload-controls {
+        display: grid;
+        gap: 14px;
+      }
+
+      .password-toggle {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 0;
+        border: 0;
+        background: transparent;
+        color: var(--accent);
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        text-decoration: underline;
+        text-underline-offset: 3px;
+      }
+
+      .password-panel {
+        display: none;
+        gap: 8px;
+      }
+
+      .password-panel.is-open {
+        display: grid;
+      }
+
+      .field-label {
+        font-size: 14px;
+        font-weight: 600;
+      }
+
+      .input,
+      .select {
+        width: 100%;
+        min-height: 44px;
+        padding: 10px 12px;
+        border-radius: var(--radius-control);
+        border: 1px solid var(--border);
+        background: var(--bg);
+        color: var(--text);
+        transition:
+          border-color var(--transition),
+          box-shadow var(--transition),
+          background-color var(--transition);
+      }
+
+      .input::placeholder {
+        color: var(--text-muted);
+      }
+
+      .button {
+        display: inline-flex;
+        justify-content: center;
+        align-items: center;
+        min-height: 48px;
+        padding: 12px 16px;
+        border: 0;
+        border-radius: var(--radius-control);
+        background: linear-gradient(135deg, var(--accent), var(--accent-strong));
+        color: #ffffff;
+        font-size: 16px;
+        font-weight: 700;
+        cursor: pointer;
+        transition:
+          transform var(--transition),
+          box-shadow var(--transition),
+          opacity var(--transition);
+      }
+
+      .button:hover:not(:disabled) {
+        transform: translateY(-1px);
+        box-shadow: 0 10px 24px color-mix(in srgb, var(--accent) 26%, transparent);
+      }
+
+      .button:disabled {
+        opacity: 0.7;
+        cursor: wait;
+      }
+
+      .info-panel {
+        padding: 22px 24px;
+      }
+
+      .info-stack {
+        display: grid;
+        gap: 18px;
+      }
+
+      .info-row {
+        display: grid;
+        gap: 10px;
+      }
+
+      .info-row__head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+      }
+
+      .info-row__label {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 16px;
+        font-weight: 600;
+      }
+
+      .info-row__label strong {
+        font-weight: 600;
+      }
+
+      .info-row__copy {
+        margin: 0;
+        font-size: 14px;
+        line-height: 1.7;
+        color: var(--text-muted);
+      }
+
+      .tooltip {
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        border: 1px solid var(--border);
+        color: var(--text-muted);
+        font-size: 11px;
+        font-weight: 700;
+        cursor: help;
+      }
+
+      .tooltip::after {
+        content: attr(data-tooltip);
+        position: absolute;
+        right: 0;
+        bottom: calc(100% + 10px);
+        width: 240px;
+        padding: 10px 12px;
+        border-radius: 10px;
+        background: var(--text);
+        color: var(--bg);
+        font-size: 12px;
+        font-weight: 500;
+        line-height: 1.5;
+        box-shadow: var(--shadow);
+        opacity: 0;
+        pointer-events: none;
+        transform: translateY(4px);
+        transition:
+          opacity var(--transition),
+          transform var(--transition);
+      }
+
+      .tooltip:hover::after,
+      .tooltip:focus-visible::after {
+        opacity: 1;
+        transform: translateY(0);
+      }
+
+      .code-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 4px 8px;
+        border-radius: var(--radius-chip);
+        background: var(--surface);
+        border: 1px solid var(--border);
+        color: var(--text);
+        font-family: var(--font-mono);
+        font-size: 13px;
+        font-weight: 500;
+      }
+
+      .advanced {
+        border-radius: 14px;
+        border: 1px solid var(--border);
+        background: var(--surface);
+      }
+
+      .advanced summary {
+        list-style: none;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 14px 16px;
+        cursor: pointer;
+        font-size: 15px;
+        font-weight: 600;
+      }
+
+      .advanced summary::-webkit-details-marker {
+        display: none;
+      }
+
+      .advanced summary::after {
+        content: "+";
+        color: var(--accent);
+        font-size: 18px;
+        line-height: 1;
+      }
+
+      .advanced[open] summary::after {
+        content: "−";
+      }
+
+      .advanced__content {
+        padding: 0 16px 16px;
+        display: grid;
+        gap: 12px;
+      }
+
+      .chip-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+      }
+
+      .sr-only {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border: 0;
+      }
+
+      :focus-visible {
+        outline: 3px solid color-mix(in srgb, var(--accent) 32%, transparent);
+        outline-offset: 2px;
+      }
+
+      @media (max-width: 1024px) {
+        .shell {
+          width: min(720px, calc(100vw - 40px));
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <nav class="topbar" aria-label="Top">
+      <div class="topbar__inner">
+        <div class="brand">
+          <span class="brand__mark" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none">
+              <path d="M12 4v10m0 0l-4-4m4 4l4-4M5 16.5v1A2.5 2.5 0 0 0 7.5 20h9a2.5 2.5 0 0 0 2.5-2.5v-1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </span>
+          <span>Local OCR</span>
+        </div>
+        <div class="badge">kat / kat+eng</div>
+      </div>
+    </nav>
+
+    <main class="shell">
+      <section class="hero" aria-labelledby="page-title">
+        <p class="section-label">Local PDF OCR</p>
+        <h1 id="page-title">Convert Scanned PDFs into Searchable PDFs</h1>
+        <p>
+          Drop one scanned PDF and the app automatically removes encryption when possible,
+          runs OCRmyPDF with Tesseract Georgian OCR, and starts the download for the searchable result.
+        </p>
+      </section>
+
+      <section class="upload-card" aria-labelledby="upload-card-title">
+        <h2 id="upload-card-title" class="sr-only">Upload PDF</h2>
+
+        <form id="ocr-form" action="/convert" method="post" enctype="multipart/form-data" novalidate>
+          <input type="hidden" name="action" value="ocr" />
+
+          <label id="dropzone" class="dropzone" for="pdf-input">
+            <input
+              id="pdf-input"
+              class="dropzone__input"
+              type="file"
+              name="pdf"
+              accept="application/pdf,.pdf"
+              required
+            />
+
+            <div id="default-state" class="dropzone__content">
+              <svg class="dropzone__icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M7 18a4 4 0 0 1-.4-8A5.5 5.5 0 0 1 17.5 9a3.5 3.5 0 1 1 .5 7H7Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
+                <path d="M12 8v7m0 0-3-3m3 3 3-3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+              <p class="dropzone__title">Drop your PDF here</p>
+              <p class="dropzone__subtitle">or click to browse</p>
+              <div id="file-pill" class="file-pill" hidden>
+                <span aria-hidden="true">PDF</span>
+                <span id="file-name">No file selected</span>
+              </div>
+            </div>
+
+            <div id="processing-state" class="dropzone__content" hidden>
+              <div class="spinner" aria-hidden="true"></div>
+              <p class="state-title" id="processing-title">Removing encryption…</p>
+              <p class="state-subtitle">The app is preparing your searchable PDF.</p>
+              <div class="processing-steps" aria-hidden="true">
+                <span class="step-chip is-active" data-step="Removing encryption…">Removing encryption</span>
+                <span class="step-chip" data-step="Running OCR…">Running OCR</span>
+                <span class="step-chip" data-step="Preparing download…">Preparing download</span>
+              </div>
+            </div>
+
+            <div id="success-state" class="dropzone__content" hidden>
+              <svg class="state-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M20 6 9 17l-5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+              <p class="state-title">Download started automatically</p>
+              <p class="success-message">Your searchable PDF is on the way.</p>
+            </div>
+          </label>
+
+          <div class="upload-controls">
+            <button id="password-toggle" class="password-toggle" type="button" aria-expanded="false" aria-controls="password-panel">
+              This PDF is password-protected
+            </button>
+
+            <div id="password-panel" class="password-panel">
+              <label class="field-label" for="password-input">PDF Password (if encrypted)</label>
+              <input
+                id="password-input"
+                class="input"
+                type="password"
+                name="password"
+                placeholder="Enter the PDF password"
+                autocomplete="off"
+              />
+            </div>
+
+            <p id="inline-message" class="helper">
+              By default, the app will try a blank password first and remove encryption automatically when possible.
+            </p>
+
+            <button id="submit-button" class="button" type="submit">Start OCR</button>
+          </div>
+        </form>
+      </section>
+
+      <section class="info-panel" aria-labelledby="info-panel-title">
+        <h2 id="info-panel-title" class="sr-only">Tips and settings</h2>
+        <div class="info-stack">
+          <div class="info-row">
+            <div class="info-row__head">
+              <div class="info-row__label">
+                <span aria-hidden="true">🌐</span>
+                <span>Default language</span>
+              </div>
+              <div style="display: inline-flex; align-items: center; gap: 10px;">
+                <label class="sr-only" for="language-select">OCR language</label>
+                <select id="language-select" class="select" name="language" form="ocr-form">
+                  <option value="kat" {% if default_lang == "kat" %}selected{% endif %}>kat</option>
+                  <option value="kat+eng" {% if default_lang == "kat+eng" %}selected{% endif %}>kat+eng</option>
+                </select>
+                <span
+                  class="tooltip"
+                  tabindex="0"
+                  data-tooltip="Use kat for Georgian-only documents. Use kat+eng when pages mix Georgian and English text."
+                >?</span>
+              </div>
+            </div>
+            <p class="info-row__copy">
+              The OCR engine defaults to <span class="code-chip">kat</span>. Switch to
+              <span class="code-chip">kat+eng</span> for mixed Georgian and English pages.
+            </p>
+          </div>
+
+          <div class="info-row">
+            <div class="info-row__label">
+              <span aria-hidden="true">🔑</span>
+              <span>Password recovery</span>
+            </div>
+            <details class="advanced">
+              <summary>Advanced</summary>
+              <div class="advanced__content">
+                <p class="info-row__copy">
+                  The local install also includes <span class="code-chip">pdfrip</span> for password
+                  recovery workflows when a PDF cannot be opened automatically.
+                </p>
+                <div class="chip-row" aria-label="Advanced recovery modes">
+                  <span class="code-chip">default-query</span>
+                  <span class="code-chip">range</span>
+                  <span class="code-chip">date</span>
+                  <span class="code-chip">mask</span>
+                  <span class="code-chip">custom-query</span>
+                </div>
+                <p class="info-row__copy">
+                  Supported strategies include brute force, numeric ranges, date masks, and custom structured queries.
+                </p>
+              </div>
+            </details>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <script>
+      const form = document.getElementById("ocr-form");
+      const dropzone = document.getElementById("dropzone");
+      const fileInput = document.getElementById("pdf-input");
+      const filePill = document.getElementById("file-pill");
+      const fileName = document.getElementById("file-name");
+      const passwordToggle = document.getElementById("password-toggle");
+      const passwordPanel = document.getElementById("password-panel");
+      const passwordInput = document.getElementById("password-input");
+      const languageSelect = document.getElementById("language-select");
+      const submitButton = document.getElementById("submit-button");
+      const inlineMessage = document.getElementById("inline-message");
+      const defaultState = document.getElementById("default-state");
+      const processingState = document.getElementById("processing-state");
+      const successState = document.getElementById("success-state");
+      const processingTitle = document.getElementById("processing-title");
+      const stepChips = Array.from(document.querySelectorAll(".step-chip"));
+
+      let isUploading = false;
+      let progressTimer = null;
+      let activeStep = 0;
+
+      function setMessage(message, kind = "helper") {
+        inlineMessage.textContent = message;
+        inlineMessage.className =
+          kind === "error"
+            ? "error-message"
+            : kind === "success"
+              ? "success-message"
+              : "helper";
+      }
+
+      function setDropzoneState(state) {
+        defaultState.hidden = state !== "idle";
+        processingState.hidden = state !== "processing";
+        successState.hidden = state !== "success";
+        dropzone.classList.toggle("is-error", state === "error");
+        dropzone.classList.toggle("is-success", state === "success");
+      }
+
+      function setFilePill(file) {
+        if (!file) {
+          filePill.hidden = true;
+          fileName.textContent = "No file selected";
+          return;
+        }
+
+        filePill.hidden = false;
+        fileName.textContent = file.name;
+      }
+
+      function resetProgressSteps() {
+        activeStep = 0;
+        stepChips.forEach((chip, index) => {
+          chip.classList.toggle("is-active", index === 0);
+        });
+        processingTitle.textContent = stepChips[0].dataset.step;
+      }
+
+      function startProgressAnimation() {
+        resetProgressSteps();
+        progressTimer = window.setInterval(() => {
+          activeStep = (activeStep + 1) % stepChips.length;
+          stepChips.forEach((chip, index) => {
+            chip.classList.toggle("is-active", index === activeStep);
+          });
+          processingTitle.textContent = stepChips[activeStep].dataset.step;
+        }, 1400);
+      }
+
+      function stopProgressAnimation() {
+        if (progressTimer) {
+          window.clearInterval(progressTimer);
+          progressTimer = null;
+        }
+      }
+
+      function getDownloadName(response) {
+        const disposition = response.headers.get("Content-Disposition") || "";
+        const utf8Match = disposition.match(/filename\*=UTF-8''([^;]+)/i);
+        if (utf8Match) return decodeURIComponent(utf8Match[1]);
+
+        const plainMatch = disposition.match(/filename="?([^"]+)"?/i);
+        if (plainMatch) return plainMatch[1];
+
+        return "searchable.pdf";
+      }
+
+      async function startUpload() {
+        if (isUploading) return;
+
+        const file = fileInput.files?.[0];
+        if (!file) {
+          setDropzoneState("error");
+          setMessage("File is not a valid PDF.", "error");
+          return;
+        }
+
+        if (file.type && file.type !== "application/pdf" && !file.name.toLowerCase().endsWith(".pdf")) {
+          setDropzoneState("error");
+          setMessage("File is not a valid PDF.", "error");
+          return;
+        }
+
+        isUploading = true;
+        submitButton.disabled = true;
+        setDropzoneState("processing");
+        setMessage("Removing encryption if needed, then running OCR.", "helper");
+        startProgressAnimation();
+
+        try {
+          const formData = new FormData(form);
+          const response = await fetch(form.action, {
+            method: "POST",
+            body: formData,
+          });
+
+          if (!response.ok) {
+            const message = (await response.text()).trim() || "The request failed.";
+            throw new Error(message);
+          }
+
+          const blob = await response.blob();
+          const downloadName = getDownloadName(response);
+          const objectUrl = URL.createObjectURL(blob);
+          const anchor = document.createElement("a");
+          anchor.href = objectUrl;
+          anchor.download = downloadName;
+          document.body.appendChild(anchor);
+          anchor.click();
+          anchor.remove();
+          URL.revokeObjectURL(objectUrl);
+
+          stopProgressAnimation();
+          setDropzoneState("success");
+          setMessage("Download started automatically.", "success");
+        } catch (error) {
+          stopProgressAnimation();
+          setDropzoneState("error");
+          setMessage(error.message || "Processing failed.", "error");
+        } finally {
+          isUploading = false;
+          submitButton.disabled = false;
+        }
+      }
+
+      function handleIncomingFile(fileList) {
+        const file = fileList?.[0];
+        if (!file) return;
+
+        const dataTransfer = new DataTransfer();
+        dataTransfer.items.add(file);
+        fileInput.files = dataTransfer.files;
+        setFilePill(file);
+        setDropzoneState("idle");
+        setMessage("Processing starts automatically after drop.", "helper");
+
+        if (!passwordPanel.classList.contains("is-open")) {
+          startUpload();
+        }
+      }
+
+      ["dragenter", "dragover"].forEach((eventName) => {
+        dropzone.addEventListener(eventName, (event) => {
+          event.preventDefault();
+          dropzone.classList.add("is-dragging");
+        });
+      });
+
+      ["dragleave", "drop"].forEach((eventName) => {
+        dropzone.addEventListener(eventName, (event) => {
+          event.preventDefault();
+          dropzone.classList.remove("is-dragging");
+        });
+      });
+
+      dropzone.addEventListener("drop", (event) => {
+        handleIncomingFile(event.dataTransfer?.files);
+      });
+
+      fileInput.addEventListener("change", () => {
+        handleIncomingFile(fileInput.files);
+      });
+
+      passwordToggle.addEventListener("click", () => {
+        const isOpen = passwordPanel.classList.toggle("is-open");
+        passwordToggle.setAttribute("aria-expanded", String(isOpen));
+        if (isOpen) passwordInput.focus();
+      });
+
+      form.addEventListener("submit", (event) => {
+        event.preventDefault();
+        startUpload();
+      });
+
+      languageSelect.addEventListener("change", () => {
+        setMessage(
+          languageSelect.value === "kat+eng"
+            ? "Mixed Georgian and English OCR is enabled."
+            : "Georgian OCR is enabled.",
+          "helper",
+        );
+      });
+    </script>
+  </body>
+</html>
