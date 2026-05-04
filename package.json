@@ -15,6 +15,7 @@
   "build": {
     "appId": "com.localocr.app",
     "productName": "Local OCR",
+    "afterPack": "desktop/after-pack.js",
     "directories": {
       "output": "dist"
     },
@@ -51,7 +52,7 @@
     "asar": true,
     "artifactName": "Local-OCR-${os}-${arch}.${ext}",
     "mac": {
-      "identity": "-",
+      "identity": null,
       "category": "public.app-category.productivity",
       "target": [
         "dmg",
