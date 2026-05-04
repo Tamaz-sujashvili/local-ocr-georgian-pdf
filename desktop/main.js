@@ -11,6 +11,11 @@ const APP_URL = `http://127.0.0.1:${APP_PORT}`;
 const HEALTH_URL = `${APP_URL}/healthz`;
 const STARTUP_TIMEOUT_MS = 120000;
 const POLL_INTERVAL_MS = 1500;
+const DARWIN_EXTRA_BIN_DIRS = [
+  "/opt/homebrew/bin",
+  "/usr/local/bin",
+  "/Applications/Docker.app/Contents/Resources/bin",
+];
 
 let mainWindow = null;
 let selectedComposeCommand = null;
@@ -37,29 +42,64 @@ function commandExists(command, args) {
   });
 }
 
+function findExecutable(commandName) {
+  const hasPathSeparator = commandName.includes(path.sep);
+  const candidates = [];
+
+  if (hasPathSeparator) {
+    candidates.push(commandName);
+  } else {
+    const pathDirs = (process.env.PATH || "")
+      .split(path.delimiter)
+      .filter(Boolean);
+    const extraDirs =
+      process.platform === "darwin" ? DARWIN_EXTRA_BIN_DIRS : [];
+
+    for (const dir of [...pathDirs, ...extraDirs]) {
+      candidates.push(path.join(dir, commandName));
+    }
+  }
+
+  for (const candidate of candidates) {
+    try {
+      fs.accessSync(candidate, fs.constants.X_OK);
+      return candidate;
+    } catch {
+      // Keep searching.
+    }
+  }
+
+  return null;
+}
+
 async function detectComposeCommand() {
   if (selectedComposeCommand) {
     return selectedComposeCommand;
   }
 
-  if (await commandExists("docker", ["compose", "version"])) {
+  const dockerBinary = findExecutable("docker");
+  if (dockerBinary && (await commandExists(dockerBinary, ["compose", "version"]))) {
     selectedComposeCommand = {
-      command: "docker",
+      command: dockerBinary,
       baseArgs: ["compose"],
     };
     return selectedComposeCommand;
   }
 
-  if (await commandExists("docker-compose", ["version"])) {
+  const dockerComposeBinary = findExecutable("docker-compose");
+  if (
+    dockerComposeBinary &&
+    (await commandExists(dockerComposeBinary, ["version"]))
+  ) {
     selectedComposeCommand = {
-      command: "docker-compose",
+      command: dockerComposeBinary,
       baseArgs: [],
     };
     return selectedComposeCommand;
   }
 
   throw new Error(
-    "Docker Compose was not found. Install Docker Desktop and make sure the docker CLI is available in PATH."
+    "Docker CLI was not found. Install/start Docker Desktop, then ensure 'docker' is available (for macOS GUI apps this is usually in /opt/homebrew/bin or /usr/local/bin)."
   );
 }
 
@@ -176,8 +216,23 @@ async function startBackend() {
   isStartingBackend = true;
 
   try {
-    await runCommand("docker", ["info"]);
-    await runCompose(["up", "-d", "--build"]);
+    const compose = await detectComposeCommand();
+    const dockerBinary = findExecutable("docker");
+
+    if (!dockerBinary) {
+      throw new Error(
+        "Docker CLI was not found. Install/start Docker Desktop and make sure the Docker binary is available to apps."
+      );
+    }
+
+    await runCommand(dockerBinary, ["info"]);
+    await runCommand(compose.command, [...compose.baseArgs, "up", "-d", "--build"], {
+      cwd: getBackendDir(),
+      env: {
+        ...process.env,
+        PORT: APP_PORT,
+      },
+    });
     shouldStopBackendOnQuit = true;
     await waitForHealth(HEALTH_URL, STARTUP_TIMEOUT_MS);
   } finally {
