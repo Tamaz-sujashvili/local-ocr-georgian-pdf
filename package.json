@@ -1,0 +1,76 @@
+{
+  "name": "local-ocr-georgian-pdf",
+  "version": "1.0.0",
+  "description": "Desktop and local OCR app for scanned PDFs with Georgian Tesseract OCR.",
+  "main": "desktop/main.js",
+  "author": "tazo",
+  "license": "MIT",
+  "scripts": {
+    "desktop:dev": "electron .",
+    "desktop:pack": "electron-builder --dir",
+    "desktop:build": "electron-builder --mac dmg zip --win nsis portable",
+    "desktop:build:mac": "electron-builder --mac dmg zip",
+    "desktop:build:win": "electron-builder --win nsis portable"
+  },
+  "build": {
+    "appId": "com.localocr.app",
+    "productName": "Local OCR",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "desktop/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "app.py",
+        "to": "backend/app.py"
+      },
+      {
+        "from": "Dockerfile",
+        "to": "backend/Dockerfile"
+      },
+      {
+        "from": "docker-compose.yml",
+        "to": "backend/docker-compose.yml"
+      },
+      {
+        "from": "requirements.txt",
+        "to": "backend/requirements.txt"
+      },
+      {
+        "from": "templates",
+        "to": "backend/templates"
+      },
+      {
+        "from": "LICENSE",
+        "to": "backend/LICENSE"
+      }
+    ],
+    "asar": true,
+    "artifactName": "${productName}-${version}-${os}-${arch}.${ext}",
+    "mac": {
+      "category": "public.app-category.productivity",
+      "target": [
+        "dmg",
+        "zip"
+      ]
+    },
+    "win": {
+      "target": [
+        "nsis",
+        "portable"
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "perMachine": false
+    }
+  },
+  "devDependencies": {
+    "electron": "^31.7.7",
+    "electron-builder": "^24.13.3"
+  }
+}

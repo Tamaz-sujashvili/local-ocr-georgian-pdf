@@ -1,154 +1,177 @@
 # Local OCR
 
-Local OCR is a Dockerized local web app for turning scanned PDFs into searchable PDFs.
-Drop one file into the browser UI and the app will:
+Local OCR is a desktop-first OCR tool for scanned PDFs with automatic unlock, Georgian OCR, and downloadable searchable output.
 
-1. Try to remove PDF encryption automatically.
+The project now ships in two forms:
+
+1. A native desktop wrapper for macOS and Windows.
+2. The original local web backend, which the desktop app starts automatically.
+
+Drop one PDF and the app will:
+
+1. Try to remove encryption automatically.
 2. Run `OCRmyPDF` with `Tesseract` Georgian OCR.
-3. Download a searchable PDF back to the browser.
+3. Download a searchable PDF.
 
-The interface is single-page, local-first, and designed for one-step use on desktop.
+## What Changed
 
-## Stack
+This repository is no longer just a localhost Flask tool. It now includes:
 
-- `OCRmyPDF` for PDF OCR orchestration
-- `Tesseract OCR` with Georgian language data `kat`
-- `qpdf` for decryption fallback and PDF inspection
-- `pdfunlock` for open-source PDF unlocking
-- `pdfrip` for advanced password recovery workflows
-- `Flask` for the local web server
-- `Docker` and `docker compose` for install-and-run packaging
+- an Electron desktop app
+- Windows installer build support
+- macOS desktop build support
+- GitHub Actions release automation for desktop artifacts
 
-## Features
+## Desktop Installers
 
-- One-drop default flow: auto unlock + OCR
-- Georgian OCR with `kat`
-- Mixed Georgian and English OCR with `kat+eng`
-- Blank-password encrypted PDF handling
-- Password field for protected PDFs
-- Optional password recovery tooling with `pdfrip`
-- Single self-contained HTML front end with light and dark themes
+Desktop builds are intended to be distributed through GitHub Releases.
 
-## Requirements
+Release artifacts:
 
-- Docker
-- Docker Compose
+- macOS: `.dmg` and `.zip`
+- Windows: `.exe` installer and portable `.exe`
 
-## Quick Start
+Important:
+
+- The desktop app still depends on `Docker Desktop`.
+- The app starts the OCR backend locally through Docker.
+- This keeps the OCR stack identical across macOS and Windows without rewriting the OCR engine separately for each OS.
+
+## End-User Install
+
+### macOS
+
+1. Install Docker Desktop.
+2. Download the latest macOS release asset from GitHub Releases.
+3. Open the app.
+4. If macOS warns that the app is unsigned, allow it in System Settings and open it again.
+
+### Windows
+
+1. Install Docker Desktop.
+2. Download the latest Windows `.exe` release asset from GitHub Releases.
+3. Open the app.
+4. If Windows SmartScreen warns about an unsigned app, choose more info and run it anyway.
+
+## Developer Quick Start
+
+Clone the repository:
 
 ```bash
 git clone https://github.com/suja-labarum/local-ocr-georgian-pdf.git
 cd local-ocr-georgian-pdf
+```
+
+Install Node dependencies for the desktop shell:
+
+```bash
+npm install
+```
+
+Run the desktop app in development:
+
+```bash
+npm run desktop:dev
+```
+
+The desktop app will try to:
+
+1. confirm Docker is available
+2. run `docker compose up -d --build`
+3. wait for the OCR backend
+4. open the UI in a native window
+
+## Local Backend Only
+
+If you want to use the browser version without the desktop shell:
+
+```bash
 docker compose up --build
 ```
 
-Open:
+Then open:
 
 [http://localhost:8765](http://localhost:8765)
 
-## Free Hosting
+## Build Desktop Installers
 
-This app is not suitable for GitHub Pages because GitHub Pages only hosts static files, while Local OCR needs a running Python server and OCR binaries. GitHub's docs describe Pages as a static hosting service.
-
-### Option 1: Hugging Face Spaces
-
-This is the easiest free public deployment path for this project because official Spaces docs support Docker apps, and the Spaces overview currently lists `CPU Basic` as free with `2 vCPU`, `16 GB` RAM, and `50 GB` ephemeral disk.
-
-1. Create a new Space on Hugging Face.
-2. Choose `Docker` as the SDK.
-3. Push this repository to the Space repository.
-4. Add this YAML block at the top of the Space `README.md`:
-
-```yaml
----
-title: Local OCR
-emoji: 📄
-colorFrom: orange
-colorTo: red
-sdk: docker
-app_port: 8765
----
-```
-
-5. Let the Space build the existing `Dockerfile`.
-
-Notes:
-
-- Free Spaces can sleep when idle.
-- Disk is not persistent, which is fine for this app because uploads are temporary.
-- Public uploads go through a third-party host, so this is not ideal for sensitive PDFs.
-
-### Option 2: Google Cloud Run
-
-Cloud Run is more production-like. Official Google Cloud docs currently show an always-free tier for Cloud Run, but it still requires a Google Cloud project and billing setup.
-
-1. Install the Google Cloud CLI.
-2. Authenticate:
+### macOS
 
 ```bash
-gcloud auth login
-gcloud config set project YOUR_PROJECT_ID
+npm run desktop:build:mac
 ```
 
-3. Build and submit the container:
+### Windows
 
 ```bash
-gcloud builds submit --tag gcr.io/YOUR_PROJECT_ID/local-ocr
+npm run desktop:build:win
 ```
 
-4. Deploy it publicly:
+### Output
+
+Build artifacts are written to:
+
+```text
+dist/
+```
+
+## GitHub Release Flow
+
+The repository includes a GitHub Actions workflow that builds desktop artifacts for macOS and Windows.
+
+To create a release:
 
 ```bash
-gcloud run deploy local-ocr \
-  --image gcr.io/YOUR_PROJECT_ID/local-ocr \
-  --platform managed \
-  --region us-central1 \
-  --allow-unauthenticated
+git tag v1.0.0
+git push origin v1.0.0
 ```
 
-Notes:
+The workflow will:
 
-- I updated the app to honor the `PORT` environment variable, which Cloud Run expects.
-- You may still get charges if usage goes beyond the free tier.
-- This is the better option if you want a stable URL and later add a custom domain.
+1. build macOS artifacts on `macos-latest`
+2. build Windows artifacts on `windows-latest`
+3. upload them to the GitHub release for that tag
 
-## Usage
+Workflow file:
 
-### Standard OCR
+[.github/workflows/desktop-release.yml](/Users/tazo/Documents/Codex/2026-05-04/the-best-open-source-setup-for/.github/workflows/desktop-release.yml)
 
-1. Open the app in your browser.
-2. Drop a scanned PDF into the upload card.
-3. If the PDF needs a real password, expand the password field and enter it.
-4. The app will unlock the PDF when possible, run OCR, and start the download automatically.
+## Stack
 
-### OCR Languages
+- `Electron` for the desktop shell
+- `Flask` for the local service
+- `OCRmyPDF` for OCR orchestration
+- `Tesseract OCR` with Georgian language data `kat`
+- `qpdf` for decryption fallback and PDF inspection
+- `pdfunlock` for open-source PDF unlocking
+- `pdfrip` for advanced password recovery workflows
+- `Docker` and `docker compose` for the backend runtime
 
-- `kat` for Georgian documents
-- `kat+eng` for mixed Georgian and English documents
+## Features
 
-### Decrypt Only
-
-The backend also supports decrypt-only mode, which returns a cleaned PDF without OCR. This is available through the `/convert` endpoint for local integrations.
-
-### Password Recovery
-
-`pdfrip` is included for advanced recovery workflows. Supported strategies:
-
-- `default-query`
-- `range`
-- `date`
-- `mask`
-- `custom-query`
-
-These are useful when a PDF cannot be opened automatically and you need structured recovery options.
+- one-drop default flow: auto unlock + OCR
+- Georgian OCR with `kat`
+- mixed Georgian and English OCR with `kat+eng`
+- blank-password encrypted PDF handling
+- password field for protected PDFs
+- advanced recovery tooling with `pdfrip`
+- Claude-style warm desktop UI
+- native desktop wrapper with backend startup handling
 
 ## Project Structure
 
 ```text
 .
+├── .github/workflows/desktop-release.yml
 ├── app.py
+├── desktop/
+│   ├── error.html
+│   ├── loading.html
+│   ├── main.js
+│   └── preload.js
 ├── Dockerfile
 ├── docker-compose.yml
+├── package.json
 ├── requirements.txt
 ├── templates/
 │   └── index.html
@@ -157,24 +180,10 @@ These are useful when a PDF cannot be opened automatically and you need structur
 
 ## Notes
 
-- The app runs entirely on your machine.
-- Uploaded files are processed in temporary directories inside the container.
-- The UI is optimized for desktop but remains usable down to tablet widths.
-- The default port is `8765`.
-
-## Development
-
-Run locally with Docker:
-
-```bash
-docker compose up --build
-```
-
-Stop the app:
-
-```bash
-docker compose down
-```
+- The app runs entirely on the user's machine.
+- Uploaded PDFs are processed in temporary directories.
+- The desktop shell currently requires Docker Desktop instead of bundling OCR binaries directly into the installer.
+- macOS and Windows builds are unsigned by default unless signing credentials are added later.
 
 ## License
 
