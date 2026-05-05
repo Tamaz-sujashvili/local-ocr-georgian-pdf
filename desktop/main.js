@@ -153,15 +153,28 @@ function runCommand(command, args, options = {}) {
   });
 }
 
-function downloadFile(url, destination) {
+function resolveRedirectUrl(currentUrl, redirectLocation) {
+  return new URL(redirectLocation, currentUrl).toString();
+}
+
+function downloadFile(url, destination, redirectCount = 0) {
   return new Promise((resolve, reject) => {
     const target = fs.createWriteStream(destination);
 
     const request = https.get(url, (response) => {
       if (response.statusCode >= 300 && response.statusCode < 400 && response.headers.location) {
+        if (redirectCount >= 10) {
+          target.close();
+          fs.unlink(destination, () => {
+            reject(new Error(`Download failed: too many redirects while fetching ${url}`));
+          });
+          return;
+        }
+
+        const nextUrl = resolveRedirectUrl(url, response.headers.location);
         target.close();
         fs.unlink(destination, () => {
-          downloadFile(response.headers.location, destination).then(resolve).catch(reject);
+          downloadFile(nextUrl, destination, redirectCount + 1).then(resolve).catch(reject);
         });
         return;
       }
