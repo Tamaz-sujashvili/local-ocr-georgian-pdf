@@ -116,15 +116,14 @@
       <div class="stack">
         <h1>Local OCR could not start</h1>
         <p>
-          The desktop shell could not start the local OCR backend. In most cases
-          this means Docker Desktop is not installed, not running, or the OCR
-          container failed to build.
+          The desktop shell could not prepare its local OCR runtime. Check your network
+          connection, retry the startup, and open the runtime folder if you need to inspect
+          downloaded files.
         </p>
         <pre id="message"></pre>
         <div class="actions">
           <button id="retry-button" class="primary" type="button">Retry startup</button>
-          <button id="open-docker-button" class="secondary" type="button">Open Docker Desktop</button>
-          <button id="docker-button" class="secondary" type="button">Download Docker Desktop</button>
+          <button id="runtime-button" class="secondary" type="button">Open runtime folder</button>
         </div>
       </div>
     </section>
@@ -138,12 +137,8 @@
         await window.desktopApp.retryStartup();
       });
 
-      document.getElementById("open-docker-button").addEventListener("click", async () => {
-        await window.desktopApp.openDockerDesktop();
-      });
-
-      document.getElementById("docker-button").addEventListener("click", async () => {
-        await window.desktopApp.openDockerDownload();
+      document.getElementById("runtime-button").addEventListener("click", async () => {
+        await window.desktopApp.openRuntimeFolder();
       });
     </script>
   </body>

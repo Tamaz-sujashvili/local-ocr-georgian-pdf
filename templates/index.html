@@ -698,24 +698,23 @@
           <div class="info-row">
             <div class="info-row__label">
               <span aria-hidden="true">🔑</span>
-              <span>Password recovery</span>
+              <span>Protected PDFs</span>
             </div>
             <details class="advanced">
               <summary>Advanced</summary>
               <div class="advanced__content">
                 <p class="info-row__copy">
-                  The local install also includes <span class="code-chip">pdfrip</span> for password
-                  recovery workflows when a PDF cannot be opened automatically.
+                  Desktop builds focus on the built-in <span class="code-chip">auto unlock + OCR</span>
+                  flow. The app tries a blank password first, removes restrictions when possible,
+                  and uses the password field only when the PDF needs a real user password.
                 </p>
-                <div class="chip-row" aria-label="Advanced recovery modes">
-                  <span class="code-chip">default-query</span>
-                  <span class="code-chip">range</span>
-                  <span class="code-chip">date</span>
-                  <span class="code-chip">mask</span>
-                  <span class="code-chip">custom-query</span>
+                <div class="chip-row" aria-label="Protected PDF support">
+                  <span class="code-chip">blank password</span>
+                  <span class="code-chip">user password</span>
+                  <span class="code-chip">qpdf fallback</span>
                 </div>
                 <p class="info-row__copy">
-                  Supported strategies include brute force, numeric ranges, date masks, and custom structured queries.
+                  If a document still cannot be opened automatically, reveal the password field and rerun OCR with the correct password.
                 </p>
               </div>
             </details>

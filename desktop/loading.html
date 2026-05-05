@@ -116,15 +116,15 @@
       <div class="stack">
         <p class="eyebrow">Local OCR Desktop</p>
         <div class="spinner" aria-hidden="true"></div>
-        <h1>Starting the OCR engine</h1>
+        <h1>Preparing the local OCR runtime</h1>
         <p>
-          The desktop app is launching the local OCR backend, checking Docker,
-          and waiting for the service to become ready.
+          On first launch, Local OCR downloads and installs its own OCR runtime.
+          This can take a few minutes while Python, OCRmyPDF, Tesseract, and PDF tools are prepared locally.
         </p>
         <div class="steps" aria-hidden="true">
-          <span class="chip">Check Docker</span>
-          <span class="chip">Start backend</span>
-          <span class="chip">Open Local OCR</span>
+          <span class="chip">Download runtime</span>
+          <span class="chip">Install OCR tools</span>
+          <span class="chip">Start Local OCR</span>
         </div>
       </div>
     </section>

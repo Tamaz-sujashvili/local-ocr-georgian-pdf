@@ -4,25 +4,18 @@
 [![Download macOS ZIP](https://img.shields.io/badge/Download-macOS%20ZIP-grey?style=for-the-badge&logo=apple)](https://github.com/suja-labarum/local-ocr-georgian-pdf/releases/latest/download/Local-OCR-mac-arm64.zip)
 [![Download Windows EXE](https://img.shields.io/badge/Download-Windows%20EXE-blue?style=for-the-badge&logo=windows)](https://github.com/suja-labarum/local-ocr-georgian-pdf/releases/latest/download/Local-OCR-win-x64.exe)
 
-Local OCR is a desktop-first OCR tool for scanned PDFs with automatic unlock, Georgian OCR, and downloadable searchable output.
+Local OCR is a desktop OCR app for scanned PDFs with automatic unlock, Georgian OCR, and downloadable searchable output.
+
+This release line no longer requires Docker Desktop. The app now bootstraps its own OCR runtime locally on first launch.
 
 ## Download
-
-Download directly from the repository front page:
 
 - macOS Apple Silicon `.dmg`: [Download Local OCR for macOS](https://github.com/suja-labarum/local-ocr-georgian-pdf/releases/latest/download/Local-OCR-mac-arm64.dmg)
 - macOS Apple Silicon `.zip`: [Download zipped macOS app](https://github.com/suja-labarum/local-ocr-georgian-pdf/releases/latest/download/Local-OCR-mac-arm64.zip)
 - Windows `.exe`: [Download Local OCR for Windows](https://github.com/suja-labarum/local-ocr-georgian-pdf/releases/latest/download/Local-OCR-win-x64.exe)
 - All release files: [Latest release page](https://github.com/suja-labarum/local-ocr-georgian-pdf/releases/latest)
 
-Install `Docker Desktop` first:
-
-- macOS / Windows: [Docker Desktop](https://www.docker.com/products/docker-desktop/)
-
-The project now ships in two forms:
-
-1. A native desktop wrapper for macOS and Windows.
-2. The original local web backend, which the desktop app starts automatically.
+## How It Works
 
 Drop one PDF and the app will:
 
@@ -30,38 +23,27 @@ Drop one PDF and the app will:
 2. Run `OCRmyPDF` with `Tesseract` Georgian OCR.
 3. Download a searchable PDF.
 
-## What Changed
+On first launch, the desktop app downloads and prepares its own local runtime using `micromamba` and `conda-forge`. That runtime includes:
 
-This repository is no longer just a localhost Flask tool. It now includes:
+- `python`
+- `flask`
+- `ocrmypdf`
+- `tesseract`
+- `qpdf`
+- `ghostscript`
+- `font-ttf-noto`
 
-- an Electron desktop app
-- Windows installer build support
-- macOS desktop build support
-- GitHub Actions release automation for desktop artifacts
-
-## Desktop Installers
-
-Desktop builds are intended to be distributed through GitHub Releases.
-
-Release artifacts:
-
-- macOS: `.dmg` and `.zip`
-- Windows: `.exe` installer
-
-Important:
-
-- The desktop app still depends on `Docker Desktop`.
-- The app starts the OCR backend locally through Docker.
-- This keeps the OCR stack identical across macOS and Windows without rewriting the OCR engine separately for each OS.
+No Docker Desktop is required.
+The desktop release is self-contained for automatic unlock + OCR. Advanced password-recovery tooling is not required for the normal app flow.
 
 ## End-User Install
 
 ### macOS
 
-1. Install Docker Desktop.
-2. Download the latest macOS release asset from GitHub Releases.
+1. Download the latest macOS `.dmg` from the links above.
+2. Move `Local OCR.app` into `Applications`.
 3. Open the app.
-4. If macOS warns that the app is unsigned, allow it in System Settings and open it again.
+4. On the first launch, wait while the OCR runtime installs locally.
 
 If macOS says the app is "damaged", remove the quarantine flag and open it again:
 
@@ -69,11 +51,7 @@ If macOS says the app is "damaged", remove the quarantine flag and open it again
 xattr -dr com.apple.quarantine "/Applications/Local OCR.app"
 ```
 
-If you opened it directly from Downloads instead of Applications, point the command at that copy instead.
-
-If the app shows a Docker startup error, keep Docker Desktop installed and let Local OCR start it automatically. You can also start Docker Desktop manually once, wait for it to finish loading, and then reopen Local OCR.
-
-If the error persists, the app bundle signature is likely broken by download/extraction. Re-sign it locally and retry:
+If the app still refuses to open after download/extraction, re-sign it locally and retry:
 
 ```bash
 codesign --force --deep --sign - "/Applications/Local OCR.app"
@@ -81,50 +59,33 @@ codesign --force --deep --sign - "/Applications/Local OCR.app"
 
 ### Windows
 
-1. Install Docker Desktop.
-2. Download the Windows `.exe` from the links at the top of this repository.
-3. Open the app.
-4. If Windows SmartScreen warns about an unsigned app, choose more info and run it anyway.
+1. Download the latest Windows `.exe` from the links above.
+2. Open the installer.
+3. Launch the app.
+4. On the first launch, wait while the OCR runtime installs locally.
+
+If Windows SmartScreen warns about an unsigned app, choose more info and run it anyway.
+
+## What Changed
+
+This repository now ships Local OCR as a self-bootstrapping desktop app:
+
+- Electron desktop shell
+- built-in runtime bootstrap with `micromamba`
+- local Python OCR stack via `conda-forge`
+- macOS and Windows installer builds
+- GitHub Actions release automation for desktop artifacts
 
 ## Developer Quick Start
-
-Clone the repository:
 
 ```bash
 git clone https://github.com/suja-labarum/local-ocr-georgian-pdf.git
 cd local-ocr-georgian-pdf
-```
-
-Install Node dependencies for the desktop shell:
-
-```bash
 npm install
-```
-
-Run the desktop app in development:
-
-```bash
 npm run desktop:dev
 ```
 
-The desktop app will try to:
-
-1. confirm Docker is available
-2. run `docker compose up -d --build`
-3. wait for the OCR backend
-4. open the UI in a native window
-
-## Local Backend Only
-
-If you want to use the browser version without the desktop shell:
-
-```bash
-docker compose up --build
-```
-
-Then open:
-
-[http://localhost:8765](http://localhost:8765)
+The first run will download and create the local OCR runtime automatically.
 
 ## Build Desktop Installers
 
@@ -140,8 +101,6 @@ npm run desktop:build:mac
 npm run desktop:build:win
 ```
 
-### Output
-
 Build artifacts are written to:
 
 ```text
@@ -150,20 +109,18 @@ dist/
 
 ## GitHub Release Flow
 
-The repository includes a GitHub Actions workflow that builds desktop artifacts for macOS and Windows.
-
 To create a release:
 
 ```bash
-git tag v1.0.0
-git push origin v1.0.0
+git tag v1.1.0
+git push origin v1.1.0
 ```
 
-The workflow will:
+The GitHub Actions workflow builds:
 
-1. build macOS artifacts on `macos-latest`
-2. build Windows artifacts on `windows-latest`
-3. upload them to the GitHub release for that tag
+1. macOS artifacts on `macos-latest`
+2. Windows artifacts on `windows-latest`
+3. release assets attached to the tag
 
 Workflow file:
 
@@ -173,12 +130,11 @@ Workflow file:
 
 - `Electron` for the desktop shell
 - `Flask` for the local service
+- `micromamba` for local runtime bootstrap
+- `conda-forge` packages for OCR dependencies
 - `OCRmyPDF` for OCR orchestration
 - `Tesseract OCR` with Georgian language data `kat`
 - `qpdf` for decryption fallback and PDF inspection
-- `pdfunlock` for open-source PDF unlocking
-- `pdfrip` for advanced password recovery workflows
-- `Docker` and `docker compose` for the backend runtime
 
 ## Features
 
@@ -187,9 +143,9 @@ Workflow file:
 - mixed Georgian and English OCR with `kat+eng`
 - blank-password encrypted PDF handling
 - password field for protected PDFs
-- advanced recovery tooling with `pdfrip`
+- no Docker requirement
 - Claude-style warm desktop UI
-- native desktop wrapper with backend startup handling
+- native desktop wrapper with local runtime startup handling
 
 ## Project Structure
 
@@ -198,14 +154,14 @@ Workflow file:
 ├── .github/workflows/desktop-release.yml
 ├── app.py
 ├── desktop/
+│   ├── after-pack.js
 │   ├── error.html
 │   ├── loading.html
 │   ├── main.js
 │   └── preload.js
-├── Dockerfile
-├── docker-compose.yml
 ├── package.json
-├── requirements.txt
+├── runtime/
+│   └── environment.yml
 ├── templates/
 │   └── index.html
 └── README.md
@@ -215,7 +171,7 @@ Workflow file:
 
 - The app runs entirely on the user's machine.
 - Uploaded PDFs are processed in temporary directories.
-- The desktop shell currently requires Docker Desktop instead of bundling OCR binaries directly into the installer.
+- The first launch can take several minutes because the OCR runtime is downloaded and installed locally.
 - Windows builds are unsigned by default unless signing credentials are added later.
 - macOS builds are not notarized by Apple unless Developer ID signing and notarization are added later.
 

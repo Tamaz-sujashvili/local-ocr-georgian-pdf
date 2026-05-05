@@ -1,7 +1,7 @@
 {
   "name": "local-ocr-georgian-pdf",
-  "version": "1.0.6",
-  "description": "Desktop and local OCR app for scanned PDFs with Georgian Tesseract OCR.",
+  "version": "1.1.0",
+  "description": "Desktop OCR app for scanned PDFs with built-in Georgian OCR runtime.",
   "main": "desktop/main.js",
   "author": "tazo",
   "license": "MIT",
@@ -29,20 +29,12 @@
         "to": "backend/app.py"
       },
       {
-        "from": "Dockerfile",
-        "to": "backend/Dockerfile"
-      },
-      {
-        "from": "docker-compose.yml",
-        "to": "backend/docker-compose.yml"
-      },
-      {
-        "from": "requirements.txt",
-        "to": "backend/requirements.txt"
-      },
-      {
         "from": "templates",
         "to": "backend/templates"
+      },
+      {
+        "from": "runtime",
+        "to": "backend/runtime"
       },
       {
         "from": "LICENSE",

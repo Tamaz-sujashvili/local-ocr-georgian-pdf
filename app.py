@@ -97,6 +97,8 @@ def decrypt_pdf(input_pdf: Path, output_pdf: Path, password: str) -> None:
 def run_ocr(input_pdf: Path, output_pdf: Path, language: str) -> None:
     cmd = [
         "ocrmypdf",
+        "--pdf-renderer",
+        "sandwich",
         "--language",
         language,
         "--deskew",
@@ -109,6 +111,17 @@ def run_ocr(input_pdf: Path, output_pdf: Path, language: str) -> None:
     ]
 
     subprocess.run(cmd, check=True, capture_output=True, text=True)
+
+
+def repair_pdf(input_pdf: Path, output_pdf: Path) -> bool:
+    cmd = [
+        "qpdf",
+        str(input_pdf),
+        str(output_pdf),
+    ]
+
+    completed = subprocess.run(cmd, check=False, capture_output=True, text=True)
+    return completed.returncode in {0, 3} and output_pdf.exists()
 
 
 def recover_pdf_password_with_pdfrip(
@@ -125,12 +138,18 @@ def recover_pdf_password_with_pdfrip(
         str(input_pdf),
     ] + args
 
-    completed = subprocess.run(
-        cmd,
-        capture_output=True,
-        text=True,
-        check=False,
-    )
+    try:
+        completed = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    except FileNotFoundError as exc:
+        raise RuntimeError(
+            "Password recovery is not available in this desktop build. "
+            "Use the built-in unlock + OCR flow or provide the PDF password directly."
+        ) from exc
 
     stdout = completed.stdout.strip()
     stderr = completed.stderr.strip()
@@ -320,8 +339,12 @@ def convert() -> Response:
         try:
             run_ocr(working_pdf, output_pdf, language)
         except subprocess.CalledProcessError as exc:
-            message = exc.stderr.strip() or exc.stdout.strip() or str(exc)
-            return Response(f"OCR failed:\n\n{message}", status=500, mimetype="text/plain")
+            repaired_pdf = temp_path / f"{input_pdf.stem}.ocr.repaired.pdf"
+            if output_pdf.exists() and repair_pdf(output_pdf, repaired_pdf):
+                output_pdf = repaired_pdf
+            else:
+                message = exc.stderr.strip() or exc.stdout.strip() or str(exc)
+                return Response(f"OCR failed:\n\n{message}", status=500, mimetype="text/plain")
 
         download_name = output_pdf.name
         final_output = temp_path / f"download-{download_name}"

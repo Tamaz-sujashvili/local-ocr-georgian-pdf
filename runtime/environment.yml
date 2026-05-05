@@ -1,0 +1,13 @@
+name: local-ocr-runtime
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11
+  - pip
+  - flask=3.1
+  - tesseract
+  - qpdf
+  - ghostscript
+  - font-ttf-noto
+  - pip:
+      - ocrmypdf
