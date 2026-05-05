@@ -1,6 +1,6 @@
 {
   "name": "local-ocr-georgian-pdf",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "description": "Desktop OCR app for scanned PDFs with built-in Georgian OCR runtime.",
   "main": "desktop/main.js",
   "author": "tazo",

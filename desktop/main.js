@@ -13,6 +13,8 @@ const HEALTH_URL = `${APP_URL}/healthz`;
 const STARTUP_TIMEOUT_MS = 120000;
 const POLL_INTERVAL_MS = 1500;
 const RUNTIME_ENV_VERSION = "2026-05-05-2";
+const RUNTIME_INSTALL_ATTEMPTS = 4;
+const RUNTIME_INSTALL_RETRY_DELAY_MS = 5000;
 
 let mainWindow = null;
 let backendProcess = null;
@@ -153,6 +155,12 @@ function runCommand(command, args, options = {}) {
   });
 }
 
+function delay(ms) {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
+
 function resolveRedirectUrl(currentUrl, redirectLocation) {
   return new URL(redirectLocation, currentUrl).toString();
 }
@@ -235,6 +243,74 @@ async function ensureMicromambaBinary() {
   return micromambaPath;
 }
 
+async function removePartialRuntimeEnvironment(micromambaPath, envPrefix) {
+  if (!fs.existsSync(envPrefix)) {
+    return;
+  }
+
+  try {
+    await runCommand(micromambaPath, ["env", "remove", "-y", "-p", envPrefix], {
+      cwd: getBackendDir(),
+      env: {
+        ...process.env,
+        MAMBA_ROOT_PREFIX: getMicromambaRootPrefix(),
+      },
+    });
+  } catch {
+    await fsp.rm(envPrefix, { recursive: true, force: true });
+  }
+}
+
+async function createRuntimeEnvironment(micromambaPath, envPrefix) {
+  let lastError = null;
+
+  for (let attempt = 1; attempt <= RUNTIME_INSTALL_ATTEMPTS; attempt += 1) {
+    try {
+      if (attempt > 1) {
+        await removePartialRuntimeEnvironment(micromambaPath, envPrefix);
+      }
+
+      await runCommand(
+        micromambaPath,
+        [
+          "create",
+          "-y",
+          "-p",
+          envPrefix,
+          "-f",
+          getRuntimeEnvironmentFile(),
+        ],
+        {
+          cwd: getBackendDir(),
+          env: {
+            ...process.env,
+            MAMBA_NO_LOW_SPEED_LIMIT: "1",
+            MAMBA_ROOT_PREFIX: getMicromambaRootPrefix(),
+          },
+        }
+      );
+
+      return;
+    } catch (error) {
+      lastError = error;
+
+      if (attempt < RUNTIME_INSTALL_ATTEMPTS) {
+        await delay(RUNTIME_INSTALL_RETRY_DELAY_MS);
+      }
+    }
+  }
+
+  throw new Error(
+    [
+      `The OCR runtime failed to install after ${RUNTIME_INSTALL_ATTEMPTS} attempts.`,
+      "Check your internet connection, then use Retry startup. Already downloaded package files are reused automatically.",
+      lastError?.message,
+    ]
+      .filter(Boolean)
+      .join("\n\n")
+  );
+}
+
 async function ensureRuntimeEnvironment() {
   const micromambaPath = await ensureMicromambaBinary();
   const envPrefix = getRuntimeEnvPrefix();
@@ -252,25 +328,7 @@ async function ensureRuntimeEnvironment() {
   }
 
   await fsp.mkdir(getMicromambaRootPrefix(), { recursive: true });
-
-  await runCommand(
-    micromambaPath,
-    [
-      "create",
-      "-y",
-      "-p",
-      envPrefix,
-      "-f",
-      getRuntimeEnvironmentFile(),
-    ],
-    {
-      cwd: getBackendDir(),
-      env: {
-        ...process.env,
-        MAMBA_ROOT_PREFIX: getMicromambaRootPrefix(),
-      },
-    }
-  );
+  await createRuntimeEnvironment(micromambaPath, envPrefix);
 
   await fsp.writeFile(stampPath, `${RUNTIME_ENV_VERSION}\n`, "utf-8");
   return { micromambaPath, envPrefix };

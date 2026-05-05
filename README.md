@@ -112,8 +112,8 @@ dist/
 To create a release:
 
 ```bash
-git tag v1.1.1
-git push origin v1.1.1
+git tag v1.1.2
+git push origin v1.1.2
 ```
 
 The GitHub Actions workflow builds:
@@ -172,6 +172,7 @@ Workflow file:
 - The app runs entirely on the user's machine.
 - Uploaded PDFs are processed in temporary directories.
 - The first launch can take several minutes because the OCR runtime is downloaded and installed locally.
+- Runtime installation retries slow package downloads automatically and reuses the local package cache.
 - Windows builds are unsigned by default unless signing credentials are added later.
 - macOS builds are not notarized by Apple unless Developer ID signing and notarization are added later.
 
