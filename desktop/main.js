@@ -11,11 +11,13 @@ const APP_URL = `http://127.0.0.1:${APP_PORT}`;
 const HEALTH_URL = `${APP_URL}/healthz`;
 const STARTUP_TIMEOUT_MS = 120000;
 const POLL_INTERVAL_MS = 1500;
+const DOCKER_DAEMON_TIMEOUT_MS = 180000;
 const DARWIN_EXTRA_BIN_DIRS = [
   "/opt/homebrew/bin",
   "/usr/local/bin",
   "/Applications/Docker.app/Contents/Resources/bin",
 ];
+const DOCKER_DESKTOP_APP_PATH = "/Applications/Docker.app";
 
 let mainWindow = null;
 let selectedComposeCommand = null;
@@ -145,6 +147,66 @@ function runCommand(command, args, options = {}) {
   });
 }
 
+function isDockerDaemonUnavailable(message) {
+  const normalized = String(message || "").toLowerCase();
+
+  return (
+    normalized.includes("failed to connect to the docker api") ||
+    normalized.includes("cannot connect to the docker daemon") ||
+    normalized.includes("is the docker daemon running") ||
+    normalized.includes("docker.sock") ||
+    normalized.includes("connect: no such file or directory")
+  );
+}
+
+function hasDockerDesktopApp() {
+  return process.platform === "darwin" && fs.existsSync(DOCKER_DESKTOP_APP_PATH);
+}
+
+async function openDockerDesktop() {
+  if (process.platform !== "darwin") {
+    throw new Error(
+      "Automatic Docker Desktop startup is currently only implemented for macOS."
+    );
+  }
+
+  if (!hasDockerDesktopApp()) {
+    throw new Error(
+      "Docker Desktop is not installed in /Applications. Install Docker Desktop and try again."
+    );
+  }
+
+  await runCommand("open", ["-a", "Docker"]);
+}
+
+async function waitForDockerDaemon(dockerBinary, timeoutMs) {
+  const startedAt = Date.now();
+  let lastError = null;
+
+  while (Date.now() - startedAt < timeoutMs) {
+    try {
+      await runCommand(dockerBinary, ["info"]);
+      return;
+    } catch (error) {
+      lastError = error;
+      if (!isDockerDaemonUnavailable(error.message)) {
+        throw error;
+      }
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
+  }
+
+  const detail = lastError?.message || "Docker daemon did not become ready.";
+  throw new Error(
+    [
+      "Docker Desktop was launched, but the Docker daemon did not become ready in time.",
+      "Make sure Docker Desktop finishes starting, then retry.",
+      detail,
+    ].join("\n\n")
+  );
+}
+
 async function runCompose(args) {
   const compose = await detectComposeCommand();
   return runCommand(compose.command, [...compose.baseArgs, ...args], {
@@ -225,7 +287,27 @@ async function startBackend() {
       );
     }
 
-    await runCommand(dockerBinary, ["info"]);
+    try {
+      await runCommand(dockerBinary, ["info"]);
+    } catch (error) {
+      if (!isDockerDaemonUnavailable(error.message)) {
+        throw error;
+      }
+
+      if (!hasDockerDesktopApp()) {
+        throw new Error(
+          [
+            "Docker CLI is installed, but the Docker daemon is not running.",
+            "Install or start Docker Desktop, then retry.",
+            error.message,
+          ].join("\n\n")
+        );
+      }
+
+      await openDockerDesktop();
+      await waitForDockerDaemon(dockerBinary, DOCKER_DAEMON_TIMEOUT_MS);
+    }
+
     await runCommand(compose.command, [...compose.baseArgs, "up", "-d", "--build"], {
       cwd: getBackendDir(),
       env: {
@@ -314,6 +396,15 @@ ipcMain.handle("desktop:retry-startup", async () => {
 
 ipcMain.handle("desktop:open-docker-download", async () => {
   await shell.openExternal("https://www.docker.com/products/docker-desktop/");
+});
+
+ipcMain.handle("desktop:open-docker-desktop", async () => {
+  try {
+    await openDockerDesktop();
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, message: error.message };
+  }
 });
 
 app.whenReady().then(bootWindow);

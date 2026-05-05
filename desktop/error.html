@@ -123,6 +123,7 @@
         <pre id="message"></pre>
         <div class="actions">
           <button id="retry-button" class="primary" type="button">Retry startup</button>
+          <button id="open-docker-button" class="secondary" type="button">Open Docker Desktop</button>
           <button id="docker-button" class="secondary" type="button">Download Docker Desktop</button>
         </div>
       </div>
@@ -135,6 +136,10 @@
 
       document.getElementById("retry-button").addEventListener("click", async () => {
         await window.desktopApp.retryStartup();
+      });
+
+      document.getElementById("open-docker-button").addEventListener("click", async () => {
+        await window.desktopApp.openDockerDesktop();
       });
 
       document.getElementById("docker-button").addEventListener("click", async () => {

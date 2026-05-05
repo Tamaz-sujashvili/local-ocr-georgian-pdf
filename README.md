@@ -71,6 +71,8 @@ xattr -dr com.apple.quarantine "/Applications/Local OCR.app"
 
 If you opened it directly from Downloads instead of Applications, point the command at that copy instead.
 
+If the app shows a Docker startup error, keep Docker Desktop installed and let Local OCR start it automatically. You can also start Docker Desktop manually once, wait for it to finish loading, and then reopen Local OCR.
+
 If the error persists, the app bundle signature is likely broken by download/extraction. Re-sign it locally and retry:
 
 ```bash
