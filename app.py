@@ -1,17 +1,14 @@
 from __future__ import annotations
 
 import os
-import errno
 import json
-import pty
-import select
 import shutil
 import subprocess
 import tempfile
 from pathlib import Path
+from urllib.parse import quote
 
 from flask import Flask, Response, jsonify, render_template, request, send_file
-from werkzeug.utils import secure_filename
 
 
 app = Flask(__name__)
@@ -22,53 +19,45 @@ DEFAULT_ACTION = "ocr"
 DEFAULT_RECOVER_METHOD = "default-query"
 
 
+def safe_upload_filename(original: str) -> str:
+    """Keep Unicode filenames (e.g. Georgian) while blocking path traversal."""
+    name = Path(original).name.replace("\x00", "")
+    name = name.replace("/", "_").replace("\\", "_").strip().strip(".")
+    if not name:
+        return "upload.pdf"
+    if not name.lower().endswith(".pdf"):
+        return f"{name}.pdf"
+    return name
+
+
+def output_download_name(stem: str, suffix: str) -> str:
+    cleaned = stem.strip().strip(".") or "document"
+    return f"{cleaned}{suffix}"
+
+
+def build_content_disposition(download_name: str, fallback: str) -> str:
+    # Strip non-ASCII from the full name, then re-derive stem/suffix safely.
+    ascii_only = download_name.encode("ascii", "ignore").decode("ascii")
+    ascii_filename = Path(ascii_only).name.strip().strip(".") or fallback or "document.pdf"
+    utf8_name = quote(download_name, safe="")
+    return f"attachment; filename=\"{ascii_filename}\"; filename*=UTF-8''{utf8_name}"
+
+
+def send_pdf(path: Path, download_name: str, fallback: str = "document.pdf") -> Response:
+    response = send_file(path, as_attachment=False, mimetype="application/pdf")
+    response.headers["Content-Disposition"] = build_content_disposition(download_name, fallback)
+    return response
+
+
 def decrypt_pdf_with_pdfunlock(input_pdf: Path, output_pdf: Path, password: str) -> None:
-    master_fd, slave_fd = pty.openpty()
     cmd = ["pdfunlock", str(input_pdf), str(output_pdf)]
-    process = None
-
-    try:
-        process = subprocess.Popen(
-            cmd,
-            stdin=slave_fd,
-            stdout=slave_fd,
-            stderr=slave_fd,
-            text=False,
-            close_fds=True,
-        )
-    finally:
-        os.close(slave_fd)
-
-    output = bytearray()
-    os.write(master_fd, password.encode("utf-8") + b"\n")
-
-    try:
-        while True:
-            ready, _, _ = select.select([master_fd], [], [], 0.2)
-            if ready:
-                try:
-                    chunk = os.read(master_fd, 4096)
-                except OSError as exc:
-                    if exc.errno == errno.EIO:
-                        break
-                    raise
-                if chunk:
-                    output.extend(chunk)
-                elif process.poll() is not None:
-                    break
-
-            if process.poll() is not None and not ready:
-                break
-    finally:
-        os.close(master_fd)
-
-    return_code = process.wait()
-    if return_code != 0:
-        raise subprocess.CalledProcessError(
-            return_code,
-            cmd,
-            output=bytes(output).decode("utf-8", errors="replace"),
-        )
+    subprocess.run(
+        cmd,
+        input=f"{password}\n",
+        text=True,
+        check=True,
+        capture_output=True,
+    )
 
 
 def decrypt_pdf_with_qpdf(input_pdf: Path, output_pdf: Path, password: str) -> None:
@@ -81,6 +70,29 @@ def decrypt_pdf_with_qpdf(input_pdf: Path, output_pdf: Path, password: str) -> N
     ]
 
     subprocess.run(cmd, check=True, capture_output=True, text=True)
+
+
+def pdf_is_encrypted(input_pdf: Path) -> bool:
+    completed = subprocess.run(
+        ["qpdf", "--show-encryption", str(input_pdf)],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    output = f"{completed.stdout}\n{completed.stderr}".lower()
+    return "not encrypted" not in output
+
+
+def prepare_working_pdf(
+    input_pdf: Path,
+    decrypted_pdf: Path,
+    password: str,
+) -> Path:
+    if not pdf_is_encrypted(input_pdf):
+        return input_pdf
+
+    decrypt_pdf(input_pdf, decrypted_pdf, password)
+    return decrypted_pdf
 
 
 def decrypt_pdf(input_pdf: Path, output_pdf: Path, password: str) -> None:
@@ -147,8 +159,8 @@ def recover_pdf_password_with_pdfrip(
         )
     except FileNotFoundError as exc:
         raise RuntimeError(
-            "Password recovery is not available in this desktop build. "
-            "Use the built-in unlock + OCR flow or provide the PDF password directly."
+            "Password recovery requires pdfrip, which is not installed on this system. "
+            "Restart the app to download it, or provide the PDF password directly."
         ) from exc
 
     stdout = completed.stdout.strip()
@@ -165,6 +177,25 @@ def recover_pdf_password_with_pdfrip(
 
     payload["_returncode"] = completed.returncode
     return payload
+
+
+def get_icon_path() -> Path | None:
+    base = Path(__file__).resolve().parent
+    for candidate in (
+        base / "assets" / "icons" / "icon.png",
+        base.parent / "assets" / "icons" / "icon.png",
+    ):
+        if candidate.exists():
+            return candidate
+    return None
+
+
+@app.get("/favicon.ico")
+def favicon() -> Response:
+    icon_path = get_icon_path()
+    if not icon_path:
+        return Response(status=404)
+    return send_file(icon_path, mimetype="image/png")
 
 
 @app.get("/")
@@ -188,9 +219,11 @@ def convert() -> Response:
     if not upload or not upload.filename:
         return Response("No PDF file was uploaded.", status=400)
 
-    filename = secure_filename(upload.filename)
-    if not filename.lower().endswith(".pdf"):
+    if not upload.filename.lower().endswith(".pdf"):
         return Response("Only PDF files are accepted.", status=400)
+
+    original_stem = Path(upload.filename).stem
+    filename = safe_upload_filename(upload.filename)
 
     action = request.form.get("action", DEFAULT_ACTION).strip() or DEFAULT_ACTION
     language = request.form.get("language", DEFAULT_LANG).strip() or DEFAULT_LANG
@@ -304,35 +337,30 @@ def convert() -> Response:
                 mimetype="application/json",
             )
 
-        if action != "recover":
-            decrypted_pdf = temp_path / f"{input_pdf.stem}.decrypted.pdf"
-            try:
-                decrypt_pdf(input_pdf, decrypted_pdf, password)
-            except subprocess.CalledProcessError as exc:
-                message = (
-                    getattr(exc, "stderr", "") or getattr(exc, "stdout", "") or str(exc)
-                ).strip()
-                if password:
-                    hint = "The provided password did not unlock the PDF."
-                else:
-                    hint = "This PDF requires a non-empty password. Provide it in the password field or use recovery mode."
-                return Response(
-                    f"PDF decryption failed.\n\n{hint}\n\n{message}",
-                    status=400,
-                    mimetype="text/plain",
+        decrypted_pdf = temp_path / f"{input_pdf.stem}.decrypted.pdf"
+        try:
+            working_pdf = prepare_working_pdf(input_pdf, decrypted_pdf, password)
+        except subprocess.CalledProcessError as exc:
+            message = (
+                getattr(exc, "stderr", "") or getattr(exc, "stdout", "") or str(exc)
+            ).strip()
+            if password:
+                hint = "The provided password did not unlock the PDF."
+            else:
+                hint = (
+                    "This PDF requires a non-empty password. Provide it in the "
+                    "password field or use recovery mode."
                 )
-            working_pdf = decrypted_pdf
+            return Response(
+                f"PDF decryption failed.\n\n{hint}\n\n{message}",
+                status=400,
+                mimetype="text/plain",
+            )
         if action == "decrypt":
-            download_name = f"{input_pdf.stem}.decrypted.pdf"
+            download_name = output_download_name(original_stem, ".decrypted.pdf")
             final_output = temp_path / f"download-{download_name}"
             shutil.copy2(working_pdf, final_output)
-
-            return send_file(
-                final_output,
-                as_attachment=True,
-                download_name=download_name,
-                mimetype="application/pdf",
-            )
+            return send_pdf(final_output, download_name, "document.decrypted.pdf")
 
         output_pdf = temp_path / f"{input_pdf.stem}.ocr.pdf"
 
@@ -346,21 +374,16 @@ def convert() -> Response:
                 message = exc.stderr.strip() or exc.stdout.strip() or str(exc)
                 return Response(f"OCR failed:\n\n{message}", status=500, mimetype="text/plain")
 
-        download_name = output_pdf.name
+        download_name = output_download_name(original_stem, ".ocr.pdf")
         final_output = temp_path / f"download-{download_name}"
         shutil.copy2(output_pdf, final_output)
 
-        return send_file(
-            final_output,
-            as_attachment=True,
-            download_name=download_name,
-            mimetype="application/pdf",
-        )
+        return send_pdf(final_output, download_name, "document.ocr.pdf")
 
 
 if __name__ == "__main__":
     app.run(
-        host="0.0.0.0",
+        host=os.environ.get("HOST", "127.0.0.1"),
         port=int(os.environ.get("PORT", "8765")),
         debug=False,
     )

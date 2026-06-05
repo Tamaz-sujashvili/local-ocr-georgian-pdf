@@ -1,7 +1,8 @@
 services:
   georgian-pdf-ocr:
     build:
-      context: .
+      context: ../..
+      dockerfile: legacy/docker/Dockerfile
     container_name: georgian-pdf-ocr
     ports:
       - "8765:8765"

@@ -4,57 +4,62 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Local OCR</title>
+    <link rel="icon" type="image/png" href="/favicon.ico" />
     <style>
       :root {
         color-scheme: light dark;
         --font-sans: Inter, Geist, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
         --font-mono: "SF Mono", "Roboto Mono", ui-monospace, monospace;
-        --bg: #fbf7f2;
-        --surface: #f4ede4;
-        --surface-strong: #fffdf9;
-        --surface-tint: rgba(204, 120, 92, 0.08);
-        --border: #e7dccf;
-        --border-strong: #d8b39b;
-        --text: #111827;
-        --text-muted: #6f6257;
-        --accent: #cc785c;
-        --accent-strong: #b85f41;
-        --accent-soft: rgba(204, 120, 92, 0.12);
+        --bg: #f6f8fc;
+        --surface: #edf2fa;
+        --surface-strong: #ffffff;
+        --surface-tint: rgba(36, 99, 235, 0.08);
+        --border: #dbe4f4;
+        --border-strong: #8ca6d8;
+        --text: #0f172a;
+        --text-muted: #475569;
+        --accent: #2563eb;
+        --accent-strong: #1d4ed8;
+        --accent-soft: rgba(37, 99, 235, 0.12);
         --success: #15803d;
         --success-soft: rgba(21, 128, 61, 0.08);
         --danger: #dc2626;
         --danger-soft: rgba(220, 38, 38, 0.08);
-        --shadow: 0 18px 48px rgba(86, 52, 33, 0.08);
-        --radius-card: 16px;
-        --radius-control: 8px;
-        --radius-chip: 6px;
-        --nav-height: 56px;
-        --transition: 150ms ease;
+        --shadow: 0 24px 60px rgba(15, 23, 42, 0.1);
+        --radius-card: 20px;
+        --radius-control: 10px;
+        --radius-chip: 8px;
+        --nav-height: 62px;
+        --transition: 180ms ease;
       }
 
       @media (prefers-color-scheme: dark) {
         :root {
-          --bg: #171310;
-          --surface: #221b17;
-          --surface-strong: #1d1713;
-          --surface-tint: rgba(234, 157, 124, 0.14);
-          --border: #3a2e28;
-          --border-strong: rgba(234, 157, 124, 0.55);
-          --text: #f8f3ed;
-          --text-muted: #b2a59a;
-          --accent: #ea9d7c;
-          --accent-strong: #f2b08d;
-          --accent-soft: rgba(234, 157, 124, 0.18);
+          --bg: #0b1220;
+          --surface: #121c31;
+          --surface-strong: #101a2d;
+          --surface-tint: rgba(96, 165, 250, 0.16);
+          --border: #26344f;
+          --border-strong: rgba(96, 165, 250, 0.6);
+          --text: #e2e8f0;
+          --text-muted: #94a3b8;
+          --accent: #60a5fa;
+          --accent-strong: #3b82f6;
+          --accent-soft: rgba(96, 165, 250, 0.2);
           --success: #4ade80;
           --success-soft: rgba(74, 222, 128, 0.14);
           --danger: #f87171;
           --danger-soft: rgba(248, 113, 113, 0.14);
-          --shadow: 0 18px 48px rgba(0, 0, 0, 0.42);
+          --shadow: 0 22px 54px rgba(2, 6, 23, 0.48);
         }
       }
 
       * {
         box-sizing: border-box;
+      }
+
+      [hidden] {
+        display: none !important;
       }
 
       html {
@@ -65,7 +70,9 @@
         margin: 0;
         min-height: 100vh;
         font-family: var(--font-sans);
-        background: linear-gradient(180deg, var(--bg) 0%, var(--surface) 100%);
+        background:
+          radial-gradient(1200px 500px at 5% -20%, color-mix(in srgb, var(--accent) 10%, transparent), transparent),
+          linear-gradient(180deg, var(--bg) 0%, var(--surface) 100%);
         color: var(--text);
       }
 
@@ -77,9 +84,9 @@
       }
 
       .shell {
-        width: min(720px, calc(100vw - 48px));
+        width: min(820px, calc(100vw - 48px));
         margin: 0 auto;
-        padding: calc(var(--nav-height) + 80px) 0 96px;
+        padding: calc(var(--nav-height) + 72px) 0 88px;
       }
 
       .topbar {
@@ -90,7 +97,7 @@
         display: flex;
         align-items: center;
         backdrop-filter: blur(12px);
-        background: color-mix(in srgb, var(--bg) 88%, transparent);
+        background: color-mix(in srgb, var(--bg) 82%, transparent);
         border-bottom: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
       }
 
@@ -113,14 +120,21 @@
       }
 
       .brand__mark {
-        width: 28px;
-        height: 28px;
+        width: 32px;
+        height: 32px;
         display: grid;
         place-items: center;
-        border-radius: 9px;
-        background: linear-gradient(135deg, var(--accent), var(--accent-strong));
-        color: #ffffff;
-        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16);
+        border-radius: 11px;
+        overflow: hidden;
+        background: var(--surface);
+        border: 1px solid color-mix(in srgb, var(--border) 88%, transparent);
+      }
+
+      .brand__mark img {
+        width: 100%;
+        height: 100%;
+        display: block;
+        object-fit: cover;
       }
 
       .badge {
@@ -132,8 +146,9 @@
         background: var(--surface);
         border: 1px solid var(--border);
         color: var(--text-muted);
-        font-size: 13px;
+        font-size: 12px;
         font-weight: 600;
+        letter-spacing: 0.01em;
       }
 
       .hero,
@@ -158,7 +173,7 @@
 
       .hero h1 {
         margin: 0;
-        font-size: 36px;
+        font-size: 40px;
         line-height: 1.08;
         font-weight: 700;
         letter-spacing: -0.02em;
@@ -181,9 +196,9 @@
       }
 
       .upload-card {
-        padding: 24px;
+        padding: 28px;
         display: grid;
-        gap: 18px;
+        gap: 20px;
         margin-bottom: 24px;
       }
 
@@ -191,7 +206,7 @@
         position: relative;
         display: grid;
         place-items: center;
-        min-height: 280px;
+        min-height: 300px;
         padding: 32px 24px;
         text-align: center;
         background: var(--surface);
@@ -249,7 +264,7 @@
       .dropzone__title,
       .state-title {
         margin: 0;
-        font-size: 20px;
+        font-size: 22px;
         font-weight: 700;
       }
 
@@ -376,8 +391,8 @@
         display: inline-flex;
         justify-content: center;
         align-items: center;
-        min-height: 48px;
-        padding: 12px 16px;
+        min-height: 50px;
+        padding: 12px 18px;
         border: 0;
         border-radius: var(--radius-control);
         background: linear-gradient(135deg, var(--accent), var(--accent-strong));
@@ -393,7 +408,7 @@
 
       .button:hover:not(:disabled) {
         transform: translateY(-1px);
-        box-shadow: 0 10px 24px color-mix(in srgb, var(--accent) 26%, transparent);
+        box-shadow: 0 12px 26px color-mix(in srgb, var(--accent) 28%, transparent);
       }
 
       .button:disabled {
@@ -565,6 +580,31 @@
           width: min(720px, calc(100vw - 40px));
         }
       }
+
+      @media (max-width: 720px) {
+        .shell {
+          width: calc(100vw - 28px);
+          padding-top: calc(var(--nav-height) + 42px);
+        }
+
+        .hero h1 {
+          font-size: 30px;
+        }
+
+        .upload-card,
+        .info-panel {
+          border-radius: 16px;
+        }
+
+        .upload-card {
+          padding: 18px;
+        }
+
+        .dropzone {
+          min-height: 260px;
+          padding: 24px 18px;
+        }
+      }
     </style>
   </head>
   <body>
@@ -572,23 +612,21 @@
       <div class="topbar__inner">
         <div class="brand">
           <span class="brand__mark" aria-hidden="true">
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="none">
-              <path d="M12 4v10m0 0l-4-4m4 4l4-4M5 16.5v1A2.5 2.5 0 0 0 7.5 20h9a2.5 2.5 0 0 0 2.5-2.5v-1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
+            <img src="/favicon.ico" alt="" />
           </span>
           <span>Local OCR</span>
         </div>
-        <div class="badge">kat / kat+eng</div>
+        <div class="badge">Desktop • Private • Offline</div>
       </div>
     </nav>
 
     <main class="shell">
       <section class="hero" aria-labelledby="page-title">
-        <p class="section-label">Local PDF OCR</p>
-        <h1 id="page-title">Convert Scanned PDFs into Searchable PDFs</h1>
+        <p class="section-label">Production OCR for Desktop</p>
+        <h1 id="page-title">Convert Scanned PDFs into Searchable Files</h1>
         <p>
-          Drop one scanned PDF and the app automatically removes encryption when possible,
-          runs OCRmyPDF with Tesseract Georgian OCR, and starts the download for the searchable result.
+          Drop one PDF and Local OCR handles everything on your machine: decryption when possible,
+          Georgian OCR, and a clean downloadable result with no cloud upload.
         </p>
       </section>
 
@@ -659,7 +697,7 @@
             </div>
 
             <p id="inline-message" class="helper">
-              By default, the app will try a blank password first and remove encryption automatically when possible.
+              Local OCR securely prepares each file for processing and keeps your workflow simple.
             </p>
 
             <button id="submit-button" class="button" type="submit">Start OCR</button>
@@ -698,23 +736,18 @@
           <div class="info-row">
             <div class="info-row__label">
               <span aria-hidden="true">🔑</span>
-              <span>Protected PDFs</span>
+              <span>Secure document handling</span>
             </div>
             <details class="advanced">
-              <summary>Advanced</summary>
+              <summary>How it works</summary>
               <div class="advanced__content">
                 <p class="info-row__copy">
-                  Desktop builds focus on the built-in <span class="code-chip">auto unlock + OCR</span>
-                  flow. The app tries a blank password first, removes restrictions when possible,
-                  and uses the password field only when the PDF needs a real user password.
+                  Local OCR is built for real-world business documents, including restricted and protected files.
+                  The app guides users through any required access step without exposing technical complexity.
                 </p>
-                <div class="chip-row" aria-label="Protected PDF support">
-                  <span class="code-chip">blank password</span>
-                  <span class="code-chip">user password</span>
-                  <span class="code-chip">qpdf fallback</span>
-                </div>
                 <p class="info-row__copy">
-                  If a document still cannot be opened automatically, reveal the password field and rerun OCR with the correct password.
+                  Everything is processed locally on your device for privacy, reliability, and a smooth
+                  production-ready user experience.
                 </p>
               </div>
             </details>
@@ -742,8 +775,11 @@
       const stepChips = Array.from(document.querySelectorAll(".step-chip"));
 
       let isUploading = false;
+      let selectedFile = null;
       let progressTimer = null;
       let activeStep = 0;
+      // Build an absolute URL to avoid Electron/relative-path oddities.
+      const convertUrl = new URL(form.getAttribute("action") || "/convert", window.location.href).toString();
 
       function setMessage(message, kind = "helper") {
         inlineMessage.textContent = message;
@@ -756,7 +792,7 @@
       }
 
       function setDropzoneState(state) {
-        defaultState.hidden = state !== "idle";
+        defaultState.hidden = !(state === "idle" || state === "error");
         processingState.hidden = state !== "processing";
         successState.hidden = state !== "success";
         dropzone.classList.toggle("is-error", state === "error");
@@ -814,7 +850,7 @@
       async function startUpload() {
         if (isUploading) return;
 
-        const file = fileInput.files?.[0];
+        const file = selectedFile || fileInput.files?.[0];
         if (!file) {
           setDropzoneState("error");
           setMessage("File is not a valid PDF.", "error");
@@ -835,7 +871,7 @@
 
         try {
           const formData = new FormData(form);
-          const response = await fetch(form.action, {
+          const response = await fetch(convertUrl, {
             method: "POST",
             body: formData,
           });
@@ -845,20 +881,35 @@
             throw new Error(message);
           }
 
-          const blob = await response.blob();
           const downloadName = getDownloadName(response);
-          const objectUrl = URL.createObjectURL(blob);
-          const anchor = document.createElement("a");
-          anchor.href = objectUrl;
-          anchor.download = downloadName;
-          document.body.appendChild(anchor);
-          anchor.click();
-          anchor.remove();
-          URL.revokeObjectURL(objectUrl);
+          const blob = await response.blob();
+          const arrayBuffer = await blob.arrayBuffer();
 
-          stopProgressAnimation();
-          setDropzoneState("success");
-          setMessage("Download started automatically.", "success");
+          if (window.desktopApp?.savePdf) {
+            const saveResult = await window.desktopApp.savePdf(arrayBuffer, downloadName);
+            if (saveResult?.canceled) {
+              throw new Error("Save canceled. Your searchable PDF is ready — click Start OCR to try again.");
+            }
+            if (!saveResult?.ok) {
+              throw new Error(saveResult?.message || "Could not save the searchable PDF.");
+            }
+            stopProgressAnimation();
+            setDropzoneState("success");
+            setMessage(`Saved: ${saveResult.filePath}`, "success");
+          } else {
+            const objectUrl = URL.createObjectURL(blob);
+            const anchor = document.createElement("a");
+            anchor.href = objectUrl;
+            anchor.download = downloadName;
+            document.body.appendChild(anchor);
+            anchor.click();
+            anchor.remove();
+            URL.revokeObjectURL(objectUrl);
+
+            stopProgressAnimation();
+            setDropzoneState("success");
+            setMessage("Download started automatically.", "success");
+          }
         } catch (error) {
           stopProgressAnimation();
           setDropzoneState("error");
@@ -876,6 +927,7 @@
         const dataTransfer = new DataTransfer();
         dataTransfer.items.add(file);
         fileInput.files = dataTransfer.files;
+        selectedFile = file;
         setFilePill(file);
         setDropzoneState("idle");
         setMessage("Processing starts automatically after drop.", "helper");
@@ -904,6 +956,7 @@
       });
 
       fileInput.addEventListener("change", () => {
+        selectedFile = fileInput.files?.[0] || null;
         handleIncomingFile(fileInput.files);
       });
 

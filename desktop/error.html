@@ -4,26 +4,27 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Local OCR Startup Error</title>
+    <link rel="icon" type="image/png" href="../assets/icons/icon.png" />
     <style>
       :root {
         color-scheme: light dark;
-        --bg: #fbf7f2;
-        --surface: #fffdf9;
-        --border: #e7dccf;
-        --text: #111827;
-        --muted: #6f6257;
-        --accent: #cc785c;
+        --bg: #f6f8fc;
+        --surface: #ffffff;
+        --border: #dbe4f4;
+        --text: #0f172a;
+        --muted: #475569;
+        --accent: #2563eb;
         --danger: #dc2626;
       }
 
       @media (prefers-color-scheme: dark) {
         :root {
-          --bg: #171310;
-          --surface: #221b17;
-          --border: #3a2e28;
-          --text: #f8f3ed;
-          --muted: #b2a59a;
-          --accent: #ea9d7c;
+          --bg: #0b1220;
+          --surface: #101a2d;
+          --border: #26344f;
+          --text: #e2e8f0;
+          --muted: #94a3b8;
+          --accent: #60a5fa;
           --danger: #f87171;
         }
       }
@@ -39,22 +40,24 @@
         place-items: center;
         padding: 32px;
         font-family: Inter, Geist, system-ui, sans-serif;
-        background: linear-gradient(180deg, var(--bg) 0%, color-mix(in srgb, var(--bg) 85%, var(--surface)) 100%);
+        background:
+          radial-gradient(1000px 420px at 8% -15%, color-mix(in srgb, var(--accent) 12%, transparent), transparent),
+          linear-gradient(180deg, var(--bg) 0%, color-mix(in srgb, var(--bg) 85%, var(--surface)) 100%);
         color: var(--text);
       }
 
       .panel {
         width: min(640px, 100%);
         padding: 28px;
-        border-radius: 20px;
+        border-radius: 22px;
         border: 1px solid var(--border);
         background: var(--surface);
-        box-shadow: 0 18px 48px rgba(86, 52, 33, 0.08);
+        box-shadow: 0 24px 56px rgba(15, 23, 42, 0.1);
       }
 
       h1 {
         margin: 0 0 10px;
-        font-size: 30px;
+        font-size: 32px;
         line-height: 1.1;
       }
 

@@ -1,180 +1,104 @@
 # Local OCR
 
-[![Download macOS DMG](https://img.shields.io/badge/Download-macOS%20DMG-black?style=for-the-badge&logo=apple)](https://github.com/suja-labarum/local-ocr-georgian-pdf/releases/latest/download/Local-OCR-mac-arm64.dmg)
-[![Download macOS ZIP](https://img.shields.io/badge/Download-macOS%20ZIP-grey?style=for-the-badge&logo=apple)](https://github.com/suja-labarum/local-ocr-georgian-pdf/releases/latest/download/Local-OCR-mac-arm64.zip)
-[![Download Windows EXE](https://img.shields.io/badge/Download-Windows%20EXE-blue?style=for-the-badge&logo=windows)](https://github.com/suja-labarum/local-ocr-georgian-pdf/releases/latest/download/Local-OCR-win-x64.exe)
+[![Download macOS DMG](https://img.shields.io/badge/Download-macOS%20DMG-black?style=for-the-badge&logo=apple)](https://github.com/Tamaz-sujashvili/local-ocr-georgian-pdf/releases/latest/download/Local-OCR-mac-arm64.dmg)
+[![Download macOS ZIP](https://img.shields.io/badge/Download-macOS%20ZIP-grey?style=for-the-badge&logo=apple)](https://github.com/Tamaz-sujashvili/local-ocr-georgian-pdf/releases/latest/download/Local-OCR-mac-arm64.zip)
+[![Download Windows EXE](https://img.shields.io/badge/Download-Windows%20EXE-blue?style=for-the-badge&logo=windows)](https://github.com/Tamaz-sujashvili/local-ocr-georgian-pdf/releases/latest/download/Local-OCR-win-x64.exe)
 
-Local OCR is a desktop OCR app for scanned PDFs with automatic unlock, Georgian OCR, and downloadable searchable output.
+**Local OCR** is one desktop application for scanned PDFs: automatic unlock when possible, Georgian OCR, and a searchable PDF download.
 
-This release line no longer requires Docker Desktop. The app now bootstraps its own OCR runtime locally on first launch.
+No Docker. No Python install. No terminal commands for normal use.
 
-## Download
+## Install (end users)
 
-- macOS Apple Silicon `.dmg`: [Download Local OCR for macOS](https://github.com/suja-labarum/local-ocr-georgian-pdf/releases/latest/download/Local-OCR-mac-arm64.dmg)
-- macOS Apple Silicon `.zip`: [Download zipped macOS app](https://github.com/suja-labarum/local-ocr-georgian-pdf/releases/latest/download/Local-OCR-mac-arm64.zip)
-- Windows `.exe`: [Download Local OCR for Windows](https://github.com/suja-labarum/local-ocr-georgian-pdf/releases/latest/download/Local-OCR-win-x64.exe)
-- All release files: [Latest release page](https://github.com/suja-labarum/local-ocr-georgian-pdf/releases/latest)
+### macOS (Apple Silicon)
 
-## How It Works
+1. Download [Local-OCR-mac-arm64.dmg](https://github.com/Tamaz-sujashvili/local-ocr-georgian-pdf/releases/latest/download/Local-OCR-mac-arm64.dmg).
+2. Open the DMG and drag **Local OCR** into **Applications**.
+3. Open **Local OCR** from Applications.
+4. Drop a PDF and wait for the searchable download.
 
-Drop one PDF and the app will:
-
-1. Try to remove encryption automatically.
-2. Run `OCRmyPDF` with `Tesseract` Georgian OCR.
-3. Download a searchable PDF.
-
-On first launch, the desktop app downloads and prepares its own local runtime using `micromamba` and `conda-forge`. That runtime includes:
-
-- `python`
-- `flask`
-- `ocrmypdf`
-- `tesseract`
-- `qpdf`
-- `ghostscript`
-- `font-ttf-noto`
-
-No Docker Desktop is required.
-The desktop release is self-contained for automatic unlock + OCR. Advanced password-recovery tooling is not required for the normal app flow.
-
-## End-User Install
-
-### macOS
-
-1. Download the latest macOS `.dmg` from the links above.
-2. Move `Local OCR.app` into `Applications`.
-3. Open the app.
-4. On the first launch, wait while the OCR runtime installs locally.
-
-If macOS says the app is "damaged", remove the quarantine flag and open it again:
+If macOS blocks the app:
 
 ```bash
 xattr -dr com.apple.quarantine "/Applications/Local OCR.app"
-```
-
-If the app still refuses to open after download/extraction, re-sign it locally and retry:
-
-```bash
 codesign --force --deep --sign - "/Applications/Local OCR.app"
 ```
 
 ### Windows
 
-1. Download the latest Windows `.exe` from the links above.
-2. Open the installer.
-3. Launch the app.
-4. On the first launch, wait while the OCR runtime installs locally.
+1. Download [Local-OCR-win-x64.exe](https://github.com/Tamaz-sujashvili/local-ocr-georgian-pdf/releases/latest/download/Local-OCR-win-x64.exe).
+2. Run the installer and launch **Local OCR**.
+3. Drop a PDF and wait for the searchable download.
 
-If Windows SmartScreen warns about an unsigned app, choose more info and run it anyway.
+If SmartScreen appears, choose **More info** → **Run anyway** (installer is unsigned by default).
 
-## What Changed
+### All platforms
 
-This repository now ships Local OCR as a self-bootstrapping desktop app:
+- [Latest release page](https://github.com/Tamaz-sujashvili/local-ocr-georgian-pdf/releases/latest) — DMG, ZIP, and EXE
 
-- Electron desktop shell
-- built-in runtime bootstrap with `micromamba`
-- local Python OCR stack via `conda-forge`
-- macOS and Windows installer builds
-- GitHub Actions release automation for desktop artifacts
+## What is inside the app
 
-## Developer Quick Start
+Release installers ship a **built-in OCR engine** (Python, OCRmyPDF, Tesseract with Georgian `kat`, qpdf, Ghostscript, fonts, and helper tools). Everything runs locally on your computer.
+
+| You get | You do **not** need |
+|--------|---------------------|
+| One app icon to open | Docker Desktop |
+| Drag-and-drop PDF OCR | Homebrew / apt packages |
+| Offline OCR after install | Manual `pip` or `conda` setup |
+| Local-only processing | A web account or cloud upload |
+
+**Developer mode** (`npm run desktop:dev`) can still download the engine on first run if you have not built a release installer. That path is for contributors only.
+
+## How to use
+
+1. Open **Local OCR**.
+2. Drop a scanned PDF (or click to browse).
+3. Optionally open **This PDF is password-protected** and enter the password.
+4. Choose `kat` or `kat+eng` if needed.
+5. The searchable PDF downloads automatically when processing finishes.
+
+## Features
+
+- Auto-unlock when a blank password works
+- Manual password for protected PDFs
+- Georgian OCR (`kat`) and mixed `kat+eng`
+- Searchable PDF output
+- Runs entirely on your machine; files stay local
+
+## For developers
+
+Clone the repo, install Node dependencies, and run the desktop shell:
 
 ```bash
-git clone https://github.com/suja-labarum/local-ocr-georgian-pdf.git
+git clone https://github.com/Tamaz-sujashvili/local-ocr-georgian-pdf.git
 cd local-ocr-georgian-pdf
 npm install
 npm run desktop:dev
 ```
 
-The first run will download and create the local OCR runtime automatically.
-
-## Build Desktop Installers
-
-### macOS
+Build a **self-contained installer** (bundles the OCR engine into the app):
 
 ```bash
-npm run desktop:build:mac
+npm run desktop:build:mac   # macOS DMG + ZIP
+npm run desktop:build:win   # Windows EXE
 ```
 
-### Windows
+Artifacts are written to `dist/`. The build step runs `desktop/bundle-runtime.js` automatically so end users get a complete app.
 
-```bash
-npm run desktop:build:win
-```
+Release tags (`v*`) trigger GitHub Actions to build macOS and Windows installers. See [.github/workflows/desktop-release.yml](.github/workflows/desktop-release.yml).
 
-Build artifacts are written to:
+Optional legacy Docker setup for maintainers only: [legacy/docker/README.md](legacy/docker/README.md).
 
-```text
-dist/
-```
-
-## GitHub Release Flow
-
-To create a release:
-
-```bash
-git tag v1.1.2
-git push origin v1.1.2
-```
-
-The GitHub Actions workflow builds:
-
-1. macOS artifacts on `macos-latest`
-2. Windows artifacts on `windows-latest`
-3. release assets attached to the tag
-
-Workflow file:
-
-[.github/workflows/desktop-release.yml](.github/workflows/desktop-release.yml)
-
-## Stack
-
-- `Electron` for the desktop shell
-- `Flask` for the local service
-- `micromamba` for local runtime bootstrap
-- `conda-forge` packages for OCR dependencies
-- `OCRmyPDF` for OCR orchestration
-- `Tesseract OCR` with Georgian language data `kat`
-- `qpdf` for decryption fallback and PDF inspection
-
-## Features
-
-- one-drop default flow: auto unlock + OCR
-- Georgian OCR with `kat`
-- mixed Georgian and English OCR with `kat+eng`
-- blank-password encrypted PDF handling
-- password field for protected PDFs
-- no Docker requirement
-- Claude-style warm desktop UI
-- native desktop wrapper with local runtime startup handling
-
-## Project Structure
+## Project layout
 
 ```text
 .
-├── .github/workflows/desktop-release.yml
-├── app.py
-├── desktop/
-│   ├── after-pack.js
-│   ├── error.html
-│   ├── loading.html
-│   ├── main.js
-│   └── preload.js
-├── package.json
-├── runtime/
-│   └── environment.yml
-├── templates/
-│   └── index.html
-└── README.md
+├── app.py                 # Local Flask OCR service
+├── desktop/               # Electron shell + runtime bootstrap
+├── runtime/               # Conda environment + setup scripts
+├── templates/             # App UI
+└── legacy/docker/         # Optional maintainer Docker (not for end users)
 ```
-
-## Notes
-
-- The app runs entirely on the user's machine.
-- Uploaded PDFs are processed in temporary directories.
-- The first launch can take several minutes because the OCR runtime is downloaded and installed locally.
-- Runtime installation retries slow package downloads automatically and reuses the local package cache.
-- Windows builds are unsigned by default unless signing credentials are added later.
-- macOS builds are not notarized by Apple unless Developer ID signing and notarization are added later.
 
 ## License
 

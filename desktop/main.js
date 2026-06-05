@@ -1,6 +1,6 @@
 "use strict";
 
-const { app, BrowserWindow, dialog, ipcMain, shell } = require("electron");
+const { app, BrowserWindow, dialog, ipcMain, nativeImage, shell } = require("electron");
 const { spawn } = require("node:child_process");
 const path = require("node:path");
 const http = require("node:http");
@@ -10,9 +10,9 @@ const fsp = require("node:fs/promises");
 const APP_PORT = process.env.PORT || "8765";
 const APP_URL = `http://127.0.0.1:${APP_PORT}`;
 const HEALTH_URL = `${APP_URL}/healthz`;
-const STARTUP_TIMEOUT_MS = 120000;
+const STARTUP_TIMEOUT_MS = 180000;
 const POLL_INTERVAL_MS = 1500;
-const RUNTIME_ENV_VERSION = "2026-05-05-2";
+const { RUNTIME_ENV_VERSION } = require("./runtime-version");
 const RUNTIME_INSTALL_ATTEMPTS = 4;
 const RUNTIME_INSTALL_RETRY_DELAY_MS = 5000;
 
@@ -31,6 +31,35 @@ function getBackendDir() {
 
 function getDesktopHtmlPath(fileName) {
   return path.join(__dirname, fileName);
+}
+
+function getAppIconPath() {
+  const candidates = [
+    path.join(getBackendDir(), "assets", "icons", "icon.png"),
+    path.resolve(__dirname, "..", "assets", "icons", "icon.png"),
+  ];
+
+  for (const iconPath of candidates) {
+    if (fs.existsSync(iconPath)) {
+      return iconPath;
+    }
+  }
+
+  return null;
+}
+
+function applyAppIcon() {
+  const iconPath = getAppIconPath();
+  if (!iconPath) {
+    return null;
+  }
+
+  const icon = nativeImage.createFromPath(iconPath);
+  if (process.platform === "darwin" && app.dock) {
+    app.dock.setIcon(icon);
+  }
+
+  return icon;
 }
 
 function ensureDesktopFilesExist() {
@@ -60,6 +89,90 @@ function getEnvStampPath() {
 
 function getRuntimeEnvironmentFile() {
   return path.join(getBackendDir(), "runtime", "environment.yml");
+}
+
+function getEnsureTessdataScriptPath() {
+  return path.join(getBackendDir(), "runtime", "ensure_tessdata.py");
+}
+
+function getEnsureOptionalToolsScriptPath() {
+  return path.join(getBackendDir(), "runtime", "ensure_optional_tools.py");
+}
+
+function getOptionalToolsDir() {
+  return path.join(getUserRuntimeRoot(), "tools");
+}
+
+function getBundledRuntimeDir() {
+  if (!app.isPackaged) {
+    return null;
+  }
+
+  return path.join(getBackendDir(), "bundled-runtime");
+}
+
+function getBundledToolsDir() {
+  if (!app.isPackaged) {
+    return null;
+  }
+
+  return path.join(getBackendDir(), "bundled-tools");
+}
+
+function getPythonExecutable(envPrefix) {
+  if (process.platform === "win32") {
+    return path.join(envPrefix, "python.exe");
+  }
+
+  return path.join(envPrefix, "bin", "python");
+}
+
+function readRuntimeStamp(envPrefix) {
+  const stampPath = path.join(envPrefix, ".local-ocr-runtime-version");
+  try {
+    return fs.readFileSync(stampPath, "utf-8").trim();
+  } catch {
+    return null;
+  }
+}
+
+function resolveBundledRuntimePrefix() {
+  const bundledDir = getBundledRuntimeDir();
+  if (!bundledDir || !fs.existsSync(getPythonExecutable(bundledDir))) {
+    return null;
+  }
+
+  if (readRuntimeStamp(bundledDir) !== RUNTIME_ENV_VERSION) {
+    return null;
+  }
+
+  return bundledDir;
+}
+
+function resolveToolsDir(envPrefix, usesBundledRuntime) {
+  if (usesBundledRuntime) {
+    const bundledTools = getBundledToolsDir();
+    if (bundledTools && fs.existsSync(bundledTools)) {
+      return bundledTools;
+    }
+  }
+
+  return getOptionalToolsDir();
+}
+
+function getTessdataPrefix(envPrefix) {
+  const candidates = [
+    path.join(envPrefix, "share", "tessdata"),
+    path.join(envPrefix, "share", "tesseract", "tessdata"),
+  ];
+
+  for (const candidate of candidates) {
+    if (fs.existsSync(candidate)) {
+      return candidate;
+    }
+  }
+
+  return candidates[0];
 }
 
 function getBackendAppPath() {
@@ -311,7 +424,75 @@ async function createRuntimeEnvironment(micromambaPath, envPrefix) {
   );
 }
 
+async function ensureTessdata(micromambaPath, envPrefix) {
+  const scriptPath = getEnsureTessdataScriptPath();
+  if (!fs.existsSync(scriptPath)) {
+    return;
+  }
+
+  await runCommand(
+    micromambaPath,
+    ["run", "-p", envPrefix, "python", scriptPath, envPrefix],
+    {
+      cwd: getBackendDir(),
+      env: {
+        ...process.env,
+        MAMBA_ROOT_PREFIX: getMicromambaRootPrefix(),
+      },
+    }
+  );
+}
+
+async function ensureOptionalTools(micromambaPath, envPrefix) {
+  const scriptPath = getEnsureOptionalToolsScriptPath();
+  if (!fs.existsSync(scriptPath)) {
+    return;
+  }
+
+  const toolsDir = getOptionalToolsDir();
+  await fsp.mkdir(toolsDir, { recursive: true });
+
+  await runCommand(
+    micromambaPath,
+    ["run", "-p", envPrefix, "python", scriptPath, toolsDir],
+    {
+      cwd: getBackendDir(),
+      env: {
+        ...process.env,
+        MAMBA_ROOT_PREFIX: getMicromambaRootPrefix(),
+      },
+    }
+  );
+}
+
+function getCondaPathEntries(envPrefix) {
+  if (process.platform === "win32") {
+    return [
+      path.join(envPrefix, "Library", "bin"),
+      path.join(envPrefix, "Scripts"),
+      envPrefix,
+    ];
+  }
+
+  return [path.join(envPrefix, "bin")];
+}
+
+function buildBackendPath(envPrefix, usesBundledRuntime = false) {
+  const toolsDir = resolveToolsDir(envPrefix, usesBundledRuntime);
+  const segments = [toolsDir, ...getCondaPathEntries(envPrefix), process.env.PATH].filter(Boolean);
+  return segments.join(path.delimiter);
+}
+
 async function ensureRuntimeEnvironment() {
+  const bundledPrefix = resolveBundledRuntimePrefix();
+  if (bundledPrefix) {
+    return {
+      micromambaPath: null,
+      envPrefix: bundledPrefix,
+      usesBundledRuntime: true,
+    };
+  }
+
   const micromambaPath = await ensureMicromambaBinary();
   const envPrefix = getRuntimeEnvPrefix();
   const stampPath = getEnvStampPath();
@@ -324,14 +505,18 @@ async function ensureRuntimeEnvironment() {
   }
 
   if (currentStamp?.trim() === RUNTIME_ENV_VERSION) {
-    return { micromambaPath, envPrefix };
+    await ensureTessdata(micromambaPath, envPrefix);
+    await ensureOptionalTools(micromambaPath, envPrefix);
+    return { micromambaPath, envPrefix, usesBundledRuntime: false };
   }
 
   await fsp.mkdir(getMicromambaRootPrefix(), { recursive: true });
   await createRuntimeEnvironment(micromambaPath, envPrefix);
+  await ensureTessdata(micromambaPath, envPrefix);
+  await ensureOptionalTools(micromambaPath, envPrefix);
 
   await fsp.writeFile(stampPath, `${RUNTIME_ENV_VERSION}\n`, "utf-8");
-  return { micromambaPath, envPrefix };
+  return { micromambaPath, envPrefix, usesBundledRuntime: false };
 }
 
 function waitForHealth(url, timeoutMs) {
@@ -374,31 +559,38 @@ function waitForHealth(url, timeoutMs) {
 }
 
 async function startPythonBackend() {
-  const { micromambaPath, envPrefix } = await ensureRuntimeEnvironment();
+  const { micromambaPath, envPrefix, usesBundledRuntime } = await ensureRuntimeEnvironment();
   const backendAppPath = getBackendAppPath();
+  const backendEnv = {
+    ...process.env,
+    PORT: APP_PORT,
+    HOST: "127.0.0.1",
+    PATH: buildBackendPath(envPrefix, usesBundledRuntime),
+    TESSDATA_PREFIX: getTessdataPrefix(envPrefix),
+    PYTHONUNBUFFERED: "1",
+  };
 
-  const child = spawn(
-    micromambaPath,
-    [
-      "run",
-      "-p",
-      envPrefix,
-      "python",
-      backendAppPath,
-    ],
-    {
-      cwd: getBackendDir(),
-      env: {
-        ...process.env,
-        PORT: APP_PORT,
-        MAMBA_ROOT_PREFIX: getMicromambaRootPrefix(),
-        PYTHONUNBUFFERED: "1",
-      },
-      shell: false,
-      windowsHide: true,
-      stdio: ["ignore", "pipe", "pipe"],
-    }
-  );
+  if (!usesBundledRuntime) {
+    backendEnv.MAMBA_ROOT_PREFIX = getMicromambaRootPrefix();
+  }
+
+  const spawnArgs = usesBundledRuntime
+    ? {
+        command: getPythonExecutable(envPrefix),
+        args: [backendAppPath],
+      }
+    : {
+        command: micromambaPath,
+        args: ["run", "-p", envPrefix, "python", backendAppPath],
+      };
+
+  const child = spawn(spawnArgs.command, spawnArgs.args, {
+    cwd: getBackendDir(),
+    env: backendEnv,
+    shell: false,
+    windowsHide: true,
+    stdio: ["ignore", "pipe", "pipe"],
+  });
 
   let stderr = "";
   let stdout = "";
@@ -497,6 +689,7 @@ function buildErrorUrl(message) {
 
 async function bootWindow() {
   ensureDesktopFilesExist();
+  const appIcon = applyAppIcon();
 
   mainWindow = new BrowserWindow({
     width: 1440,
@@ -505,7 +698,8 @@ async function bootWindow() {
     minHeight: 780,
     show: false,
     title: "Local OCR",
-    backgroundColor: "#fbf7f2",
+    icon: appIcon || undefined,
+    backgroundColor: "#f6f8fc",
     webPreferences: {
       preload: getDesktopHtmlPath("preload.js"),
       contextIsolation: true,
@@ -555,6 +749,25 @@ ipcMain.handle("desktop:open-runtime-folder", async () => {
   await fsp.mkdir(runtimeDir, { recursive: true });
   await shell.openPath(runtimeDir);
   return { ok: true };
+});
+
+ipcMain.handle("desktop:save-pdf", async (_event, suggestedName, arrayBuffer) => {
+  if (!mainWindow) {
+    return { ok: false, message: "Main window is not available." };
+  }
+
+  const defaultPath = path.join(app.getPath("downloads"), suggestedName || "searchable.pdf");
+  const { canceled, filePath } = await dialog.showSaveDialog(mainWindow, {
+    defaultPath,
+    filters: [{ name: "PDF", extensions: ["pdf"] }],
+  });
+
+  if (canceled || !filePath) {
+    return { ok: false, canceled: true };
+  }
+
+  await fsp.writeFile(filePath, Buffer.from(arrayBuffer));
+  return { ok: true, filePath };
 });
 
 app.whenReady().then(bootWindow);

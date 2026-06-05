@@ -4,27 +4,28 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Local OCR</title>
+    <link rel="icon" type="image/png" href="../assets/icons/icon.png" />
     <style>
       :root {
         color-scheme: light dark;
-        --bg: #fbf7f2;
-        --surface: #fffdf9;
-        --border: #e7dccf;
-        --text: #111827;
-        --muted: #6f6257;
-        --accent: #cc785c;
-        --accent-strong: #b85f41;
+        --bg: #f6f8fc;
+        --surface: #ffffff;
+        --border: #dbe4f4;
+        --text: #0f172a;
+        --muted: #475569;
+        --accent: #2563eb;
+        --accent-strong: #1d4ed8;
       }
 
       @media (prefers-color-scheme: dark) {
         :root {
-          --bg: #171310;
-          --surface: #221b17;
-          --border: #3a2e28;
-          --text: #f8f3ed;
-          --muted: #b2a59a;
-          --accent: #ea9d7c;
-          --accent-strong: #f2b08d;
+          --bg: #0b1220;
+          --surface: #101a2d;
+          --border: #26344f;
+          --text: #e2e8f0;
+          --muted: #94a3b8;
+          --accent: #60a5fa;
+          --accent-strong: #3b82f6;
         }
       }
 
@@ -39,17 +40,19 @@
         place-items: center;
         padding: 32px;
         font-family: Inter, Geist, system-ui, sans-serif;
-        background: linear-gradient(180deg, var(--bg) 0%, color-mix(in srgb, var(--bg) 85%, var(--surface)) 100%);
+        background:
+          radial-gradient(1000px 420px at 8% -15%, color-mix(in srgb, var(--accent) 12%, transparent), transparent),
+          linear-gradient(180deg, var(--bg) 0%, color-mix(in srgb, var(--bg) 85%, var(--surface)) 100%);
         color: var(--text);
       }
 
       .panel {
         width: min(560px, 100%);
         padding: 28px;
-        border-radius: 20px;
+        border-radius: 22px;
         border: 1px solid var(--border);
         background: var(--surface);
-        box-shadow: 0 18px 48px rgba(86, 52, 33, 0.08);
+        box-shadow: 0 24px 56px rgba(15, 23, 42, 0.1);
       }
 
       .eyebrow {
@@ -63,7 +66,7 @@
 
       h1 {
         margin: 0 0 10px;
-        font-size: 32px;
+        font-size: 34px;
         line-height: 1.1;
       }
 
@@ -116,15 +119,15 @@
       <div class="stack">
         <p class="eyebrow">Local OCR Desktop</p>
         <div class="spinner" aria-hidden="true"></div>
-        <h1>Preparing the local OCR runtime</h1>
+        <h1>Starting Local OCR</h1>
         <p>
-          On first launch, Local OCR downloads and installs its own OCR runtime.
-          This can take a few minutes while Python, OCRmyPDF, Tesseract, and PDF tools are prepared locally.
+          Local OCR is a single desktop app. The installer includes the OCR engine,
+          so you do not need Docker, Python, or any command-line setup.
         </p>
         <div class="steps" aria-hidden="true">
-          <span class="chip">Download runtime</span>
-          <span class="chip">Install OCR tools</span>
-          <span class="chip">Start Local OCR</span>
+          <span class="chip">Prepare OCR engine</span>
+          <span class="chip">Start local service</span>
+          <span class="chip">Open app</span>
         </div>
       </div>
     </section>
