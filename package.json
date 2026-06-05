@@ -6,11 +6,12 @@
   "author": "tazo",
   "license": "MIT",
   "scripts": {
-    "desktop:dev": "env -u ELECTRON_RUN_AS_NODE electron .",
+    "desktop:dev": "node desktop/run-dev.js",
     "desktop:reset-runtime": "node desktop/reset-runtime.js",
     "smoke:test": "node scripts/smoke-test.mjs",
     "test:pdf": "node scripts/test-pdf.mjs",
-    "desktop:icons": "bash scripts/generate-icons.sh",
+    "desktop:icons": "node scripts/generate-icons.mjs",
+    "desktop:icons:mac": "bash scripts/generate-icons.sh && node scripts/generate-icons.mjs",
     "desktop:bundle-runtime": "node desktop/bundle-runtime.js",
     "desktop:pack": "electron-builder --dir --publish never",
     "desktop:install": "bash scripts/install-mac.sh",
@@ -73,6 +74,7 @@
       ]
     },
     "win": {
+      "icon": "assets/icons/icon.ico",
       "target": [
         "nsis"
       ]
@@ -80,11 +82,17 @@
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
-      "perMachine": false
+      "perMachine": false,
+      "installerIcon": "assets/icons/icon.ico",
+      "uninstallerIcon": "assets/icons/icon.ico",
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Local OCR"
     }
   },
   "devDependencies": {
     "electron": "^40.0.0",
-    "electron-builder": "^26.8.1"
+    "electron-builder": "^26.8.1",
+    "to-ico": "^1.1.5"
   }
 }

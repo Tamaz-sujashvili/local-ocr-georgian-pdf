@@ -11,6 +11,11 @@ if [[ ! -f "$SRC" ]]; then
   exit 1
 fi
 
+if [[ "$(uname -s)" != "Darwin" ]] || ! command -v iconutil >/dev/null; then
+  echo "Skipping .icns generation (macOS only)."
+  exit 0
+fi
+
 rm -rf "$ICONSET"
 mkdir -p "$ICONSET"
 

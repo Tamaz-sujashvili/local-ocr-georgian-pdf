@@ -24,13 +24,16 @@ xattr -dr com.apple.quarantine "/Applications/Local OCR.app"
 codesign --force --deep --sign - "/Applications/Local OCR.app"
 ```
 
-### Windows
+### Windows (64-bit)
 
 1. Download [Local-OCR-win-x64.exe](https://github.com/Tamaz-sujashvili/local-ocr-georgian-pdf/releases/latest/download/Local-OCR-win-x64.exe).
-2. Run the installer and launch **Local OCR**.
-3. Drop a PDF and wait for the searchable download.
+2. Run the installer and choose your install folder.
+3. Launch **Local OCR** from the desktop shortcut or Start menu.
+4. Drop a PDF and save the searchable result when prompted.
 
 If SmartScreen appears, choose **More info** → **Run anyway** (installer is unsigned by default).
+
+The Windows build is the same product as macOS: bundled OCR engine, local processing, Georgian OCR, and password-protected PDF support.
 
 ### All platforms
 
@@ -79,9 +82,12 @@ npm run desktop:dev
 Build a **self-contained installer** (bundles the OCR engine into the app):
 
 ```bash
-npm run desktop:build:mac   # macOS DMG + ZIP
-npm run desktop:build:win   # Windows EXE
+npm run desktop:icons       # regenerate macOS + Windows icons
+npm run desktop:build:mac   # macOS DMG + ZIP (run on macOS)
+npm run desktop:build:win   # Windows EXE (run on Windows)
 ```
+
+Windows installers must be built on Windows (or via GitHub Actions). macOS installers must be built on macOS.
 
 Artifacts are written to `dist/`. The build step runs `desktop/bundle-runtime.js` automatically so end users get a complete app.
 

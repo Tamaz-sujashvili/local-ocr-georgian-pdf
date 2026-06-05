@@ -164,6 +164,8 @@ function getTessdataPrefix(envPrefix) {
   const candidates = [
     path.join(envPrefix, "share", "tessdata"),
     path.join(envPrefix, "share", "tesseract", "tessdata"),
+    path.join(envPrefix, "Library", "share", "tessdata"),
+    path.join(envPrefix, "Library", "share", "tesseract", "tessdata"),
   ];
 
   for (const candidate of candidates) {
@@ -622,7 +624,7 @@ async function startPythonBackend() {
     await waitForHealth(HEALTH_URL, STARTUP_TIMEOUT_MS);
   } catch (error) {
     if (isProcessRunning(child.pid)) {
-      child.kill("SIGTERM");
+      terminateBackendProcess(child);
     }
 
     throw new Error(
@@ -657,6 +659,24 @@ async function ensureBackendStarted() {
   }
 }
 
+function terminateBackendProcess(child) {
+  if (process.platform === "win32") {
+    child.kill();
+    return;
+  }
+
+  child.kill("SIGTERM");
+}
+
+function forceKillBackendProcess(child) {
+  if (process.platform === "win32") {
+    child.kill();
+    return;
+  }
+
+  child.kill("SIGKILL");
+}
+
 async function stopBackend() {
   if (!backendProcess || !isProcessRunning(backendProcess.pid)) {
     return;
@@ -668,7 +688,7 @@ async function stopBackend() {
   await new Promise((resolve) => {
     const timeout = setTimeout(() => {
       if (isProcessRunning(child.pid)) {
-        child.kill("SIGKILL");
+        forceKillBackendProcess(child);
       }
       resolve();
     }, 5000);
@@ -678,7 +698,7 @@ async function stopBackend() {
       resolve();
     });
 
-    child.kill("SIGTERM");
+    terminateBackendProcess(child);
   });
 }
 

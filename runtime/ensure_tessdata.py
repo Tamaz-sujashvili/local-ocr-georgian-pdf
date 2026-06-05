@@ -17,6 +17,8 @@ def resolve_tessdata_dir(env_prefix: Path) -> Path:
     candidates = [
         env_prefix / "share" / "tessdata",
         env_prefix / "share" / "tesseract" / "tessdata",
+        env_prefix / "Library" / "share" / "tessdata",
+        env_prefix / "Library" / "share" / "tesseract" / "tessdata",
     ]
 
     for candidate in candidates:
