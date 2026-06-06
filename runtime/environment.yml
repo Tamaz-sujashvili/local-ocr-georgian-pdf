@@ -8,7 +8,6 @@ dependencies:
   - tesseract
   - qpdf
   - ghostscript
-  - go
   - font-ttf-noto
   - pip:
       - ocrmypdf

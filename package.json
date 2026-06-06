@@ -6,6 +6,7 @@
   "author": "tazo",
   "license": "MIT",
   "scripts": {
+    "postinstall": "node -e \"if(process.platform==='win32'){try{require('fs').accessSync('node_modules/electron/dist/electron.exe')}catch{require('child_process').execSync('powershell -NoProfile -ExecutionPolicy Bypass -File scripts/ensure-electron-win.ps1',{stdio:'inherit'})}}\"",
     "desktop:dev": "node desktop/run-dev.js",
     "desktop:reset-runtime": "node desktop/reset-runtime.js",
     "smoke:test": "node scripts/smoke-test.mjs",
@@ -75,6 +76,7 @@
     },
     "win": {
       "icon": "assets/icons/icon.ico",
+      "signAndEditExecutable": false,
       "target": [
         "nsis"
       ]
@@ -91,7 +93,7 @@
     }
   },
   "devDependencies": {
-    "electron": "^40.0.0",
+    "electron": "^40.10.2",
     "electron-builder": "^26.8.1",
     "to-ico": "^1.1.5"
   }
