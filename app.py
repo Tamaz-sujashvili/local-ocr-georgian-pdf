@@ -51,7 +51,7 @@ def build_content_disposition(download_name: str, fallback: str) -> str:
 
 
 def send_pdf(path: Path, download_name: str, fallback: str = "document.pdf") -> Response:
-    response = send_file(path, as_attachment=False, mimetype="application/pdf")
+    response = Response(path.read_bytes(), mimetype="application/pdf")
     response.headers["Content-Disposition"] = build_content_disposition(download_name, fallback)
     return response
 
@@ -399,11 +399,15 @@ def convert() -> Response:
             result_path = temp_path / result_name
             result_path.write_text(json.dumps(result, indent=2), encoding="utf-8")
 
-            return send_file(
-                result_path,
-                as_attachment=True,
-                download_name=result_name,
+            return Response(
+                result_path.read_bytes(),
                 mimetype="application/json",
+                headers={
+                    "Content-Disposition": build_content_disposition(
+                        result_name,
+                        "document.pdfrip.json",
+                    )
+                },
             )
 
         decrypted_pdf = temp_path / f"{input_pdf.stem}.decrypted.pdf"

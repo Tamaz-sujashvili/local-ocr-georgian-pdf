@@ -10,13 +10,18 @@ const fs = require("node:fs");
 const fsp = require("node:fs/promises");
 const https = require("node:https");
 const path = require("node:path");
-const { RUNTIME_ENV_VERSION } = require("./runtime-version");
+const {
+  RUNTIME_ENV_VERSION,
+  getBundledRuntimeDir,
+  getExtraCondaPackages,
+} = require("./runtime-version");
 
 const projectRoot = path.resolve(__dirname, "..");
 const backendDir = projectRoot;
 const buildDir = path.join(projectRoot, "build");
 const bootstrapDir = path.join(buildDir, "bootstrap");
-const bundledRuntimeDir = path.join(buildDir, "bundled-runtime");
+const { linkBundledRuntimeForPackaging } = require("./bundled-runtime-link");
+const bundledRuntimeDir = getBundledRuntimeDir(buildDir);
 const bundledToolsDir = path.join(buildDir, "bundled-tools");
 const environmentFile = path.join(backendDir, "runtime", "environment.yml");
 const INSTALL_ATTEMPTS = 4;
@@ -147,29 +152,52 @@ async function ensureMicromambaBinary() {
   return micromambaPath;
 }
 
+async function removeBundledRuntimeDir() {
+  if (!fs.existsSync(bundledRuntimeDir)) {
+    return;
+  }
+
+  try {
+    await fsp.rm(bundledRuntimeDir, { recursive: true, force: true });
+  } catch (error) {
+    if (!["EBUSY", "EPERM", "EACCES"].includes(error?.code)) {
+      throw error;
+    }
+    console.warn(`Could not remove ${bundledRuntimeDir}; updating in place.`);
+  }
+}
+
+function getMambaEnv(mambaRoot) {
+  const pkgsDirs = path.join(buildDir, "mamba-pkgs");
+  return {
+    ...process.env,
+    MAMBA_NO_LOW_SPEED_LIMIT: "1",
+    MAMBA_ROOT_PREFIX: mambaRoot,
+    CONDA_PKGS_DIRS: pkgsDirs,
+    MAMBA_PKGS_DIRS: pkgsDirs,
+  };
+}
+
 async function createBundledRuntime(micromambaPath) {
   const mambaRoot = path.join(buildDir, "mamba-root");
-  await fsp.rm(bundledRuntimeDir, { recursive: true, force: true });
+  await removeBundledRuntimeDir();
   await fsp.mkdir(mambaRoot, { recursive: true });
+  await fsp.mkdir(path.join(buildDir, "mamba-pkgs"), { recursive: true });
 
   let lastError = null;
   for (let attempt = 1; attempt <= INSTALL_ATTEMPTS; attempt += 1) {
     try {
       if (attempt > 1) {
-        await fsp.rm(bundledRuntimeDir, { recursive: true, force: true });
+        await removeBundledRuntimeDir();
       }
 
       console.log(`Creating bundled OCR runtime (attempt ${attempt}/${INSTALL_ATTEMPTS})...`);
       await runCommand(
         micromambaPath,
-        ["create", "-y", "-p", bundledRuntimeDir, "-f", environmentFile],
+        ["create", "-y", "-p", bundledRuntimeDir, "-f", environmentFile, ...getExtraCondaPackages()],
         {
           cwd: backendDir,
-          env: {
-            ...process.env,
-            MAMBA_NO_LOW_SPEED_LIMIT: "1",
-            MAMBA_ROOT_PREFIX: mambaRoot,
-          },
+          env: getMambaEnv(mambaRoot),
         }
       );
       return;
@@ -191,10 +219,7 @@ async function runBundledPython(scriptPath, args) {
     ["run", "-p", bundledRuntimeDir, "python", scriptPath, ...args],
     {
       cwd: backendDir,
-      env: {
-        ...process.env,
-        MAMBA_ROOT_PREFIX: path.join(buildDir, "mamba-root"),
-      },
+      env: getMambaEnv(path.join(buildDir, "mamba-root")),
     }
   );
 }
@@ -219,6 +244,7 @@ async function main() {
   const micromambaPath = await ensureMicromambaBinary();
   await createBundledRuntime(micromambaPath);
   await bundleSupportAssets();
+  await linkBundledRuntimeForPackaging(buildDir, bundledRuntimeDir);
 
   console.log("Bundled OCR runtime ready:");
   console.log(`  ${bundledRuntimeDir}`);

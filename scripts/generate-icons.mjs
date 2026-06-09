@@ -2,7 +2,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import toIco from "to-ico";
+import pngToIco from "png-to-ico";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const iconsDir = path.join(root, "assets", "icons");
@@ -15,6 +15,6 @@ if (!fs.existsSync(pngPath)) {
 }
 
 const png = fs.readFileSync(pngPath);
-const ico = await toIco(png, { resize: true, sizes: [16, 24, 32, 48, 64, 128, 256] });
+const ico = await pngToIco(png);
 fs.writeFileSync(icoPath, ico);
 console.log(`Wrote ${icoPath}`);

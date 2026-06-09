@@ -12,7 +12,7 @@ const APP_URL = `http://127.0.0.1:${APP_PORT}`;
 const HEALTH_URL = `${APP_URL}/healthz`;
 const STARTUP_TIMEOUT_MS = 180000;
 const POLL_INTERVAL_MS = 1500;
-const { RUNTIME_ENV_VERSION } = require("./runtime-version");
+const { RUNTIME_ENV_VERSION, getExtraCondaPackages } = require("./runtime-version");
 const RUNTIME_INSTALL_ATTEMPTS = 4;
 const RUNTIME_INSTALL_RETRY_DELAY_MS = 5000;
 
@@ -421,6 +421,7 @@ async function createRuntimeEnvironment(micromambaPath, envPrefix) {
           envPrefix,
           "-f",
           getRuntimeEnvironmentFile(),
+          ...getExtraCondaPackages(),
         ],
         {
           cwd: getBackendDir(),
@@ -598,6 +599,10 @@ async function startPythonBackend() {
     TESSDATA_PREFIX: getTessdataPrefix(envPrefix),
     PYTHONUNBUFFERED: "1",
   };
+
+  if (process.platform === "win32") {
+    backendEnv.CONDA_PREFIX = envPrefix;
+  }
 
   if (!usesBundledRuntime) {
     backendEnv.MAMBA_ROOT_PREFIX = getMicromambaRootPrefix();
