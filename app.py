@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import logging
 import os
 import json
+import re
 import shutil
 import subprocess
 import tempfile
@@ -10,6 +12,7 @@ from urllib.parse import quote
 
 from flask import Flask, Response, jsonify, render_template, request, send_file
 
+logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 200 * 1024 * 1024
@@ -17,6 +20,11 @@ app.config["MAX_CONTENT_LENGTH"] = 200 * 1024 * 1024
 DEFAULT_LANG = "kat"
 DEFAULT_ACTION = "ocr"
 DEFAULT_RECOVER_METHOD = "default-query"
+ALLOWED_LANGUAGES = frozenset({"kat", "kat+eng", "eng"})
+ALLOWED_RECOVER_METHODS = frozenset({"default-query", "range", "date", "mask", "custom-query"})
+ALLOWED_DATE_FORMATS = frozenset({"DDMMYYYY", "MMDDYYYY", "YYYYMMDD", "DDMMYY", "MMDDYY", "YYMMDD"})
+MAX_RECOVER_TEXT_LEN = 256
+MAX_RECOVER_RANGE = 10_000_000
 
 
 def safe_upload_filename(original: str) -> str:
@@ -36,7 +44,6 @@ def output_download_name(stem: str, suffix: str) -> str:
 
 
 def build_content_disposition(download_name: str, fallback: str) -> str:
-    # Strip non-ASCII from the full name, then re-derive stem/suffix safely.
     ascii_only = download_name.encode("ascii", "ignore").decode("ascii")
     ascii_filename = Path(ascii_only).name.strip().strip(".") or fallback or "document.pdf"
     utf8_name = quote(download_name, safe="")
@@ -47,6 +54,34 @@ def send_pdf(path: Path, download_name: str, fallback: str = "document.pdf") -> 
     response = send_file(path, as_attachment=False, mimetype="application/pdf")
     response.headers["Content-Disposition"] = build_content_disposition(download_name, fallback)
     return response
+
+
+def normalize_language(language: str) -> str:
+    cleaned = language.strip()
+    if cleaned not in ALLOWED_LANGUAGES:
+        raise ValueError("Unsupported OCR language.")
+    return cleaned
+
+
+def normalize_recover_text(value: str, field_name: str) -> str:
+    cleaned = value.strip()
+    if len(cleaned) > MAX_RECOVER_TEXT_LEN:
+        raise ValueError(f"{field_name} is too long.")
+    if re.search(r"[\x00-\x08\x0b\x0c\x0e-\x1f]", cleaned):
+        raise ValueError(f"{field_name} contains invalid characters.")
+    return cleaned
+
+
+def validate_pdf_file(path: Path) -> bool:
+    with path.open("rb") as handle:
+        return handle.read(5) == b"%PDF-"
+
+
+def subprocess_env_with_password(password: str) -> dict[str, str]:
+    env = os.environ.copy()
+    if password:
+        env["QPDF_PASSWORD"] = password
+    return env
 
 
 def decrypt_pdf_with_pdfunlock(input_pdf: Path, output_pdf: Path, password: str) -> None:
@@ -61,15 +96,14 @@ def decrypt_pdf_with_pdfunlock(input_pdf: Path, output_pdf: Path, password: str)
 
 
 def decrypt_pdf_with_qpdf(input_pdf: Path, output_pdf: Path, password: str) -> None:
-    cmd = [
-        "qpdf",
-        "--decrypt",
-        f"--password={password}",
-        str(input_pdf),
-        str(output_pdf),
-    ]
-
-    subprocess.run(cmd, check=True, capture_output=True, text=True)
+    cmd = ["qpdf", "--decrypt", str(input_pdf), str(output_pdf)]
+    subprocess.run(
+        cmd,
+        check=True,
+        capture_output=True,
+        text=True,
+        env=subprocess_env_with_password(password),
+    )
 
 
 def pdf_is_encrypted(input_pdf: Path) -> bool:
@@ -126,12 +160,7 @@ def run_ocr(input_pdf: Path, output_pdf: Path, language: str) -> None:
 
 
 def repair_pdf(input_pdf: Path, output_pdf: Path) -> bool:
-    cmd = [
-        "qpdf",
-        str(input_pdf),
-        str(output_pdf),
-    ]
-
+    cmd = ["qpdf", str(input_pdf), str(output_pdf)]
     completed = subprocess.run(cmd, check=False, capture_output=True, text=True)
     return completed.returncode in {0, 3} and output_pdf.exists()
 
@@ -159,21 +188,22 @@ def recover_pdf_password_with_pdfrip(
         )
     except FileNotFoundError as exc:
         raise RuntimeError(
-            "Password recovery requires pdfrip, which is not installed on this system. "
-            "Restart the app to download it, or provide the PDF password directly."
+            "Password recovery is not available on this system. "
+            "Provide the PDF password directly."
         ) from exc
 
     stdout = completed.stdout.strip()
     stderr = completed.stderr.strip()
 
     if not stdout:
-        message = stderr or f"pdfrip exited with code {completed.returncode}"
-        raise RuntimeError(message)
+        logger.warning("pdfrip failed: %s", stderr or completed.returncode)
+        raise RuntimeError("Password recovery could not complete for this file.")
 
     try:
         payload = json.loads(stdout)
     except json.JSONDecodeError as exc:
-        raise RuntimeError(stderr or stdout) from exc
+        logger.warning("pdfrip returned invalid JSON: %s", stderr or stdout)
+        raise RuntimeError("Password recovery returned an invalid response.") from exc
 
     payload["_returncode"] = completed.returncode
     return payload
@@ -188,6 +218,39 @@ def get_icon_path() -> Path | None:
         if candidate.exists():
             return candidate
     return None
+
+
+def resolve_bind_host() -> str:
+    host = os.environ.get("HOST", "127.0.0.1").strip()
+    if host in {"127.0.0.1", "localhost", "::1"}:
+        return host
+    if os.environ.get("ALLOW_REMOTE_HOST") == "1":
+        return host
+    return "127.0.0.1"
+
+
+def log_subprocess_failure(exc: subprocess.CalledProcessError, context: str) -> None:
+    detail = (getattr(exc, "stderr", "") or getattr(exc, "stdout", "") or str(exc)).strip()
+    logger.error("%s failed: %s", context, detail)
+
+
+@app.after_request
+def set_security_headers(response: Response) -> Response:
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "no-referrer"
+    response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+    response.headers["Content-Security-Policy"] = (
+        "default-src 'self'; "
+        "script-src 'self'; "
+        "style-src 'self' 'unsafe-inline'; "
+        "img-src 'self' data:; "
+        "connect-src 'self'; "
+        "frame-ancestors 'none'; "
+        "base-uri 'self'; "
+        "form-action 'self'"
+    )
+    return response
 
 
 @app.get("/favicon.ico")
@@ -226,7 +289,11 @@ def convert() -> Response:
     filename = safe_upload_filename(upload.filename)
 
     action = request.form.get("action", DEFAULT_ACTION).strip() or DEFAULT_ACTION
-    language = request.form.get("language", DEFAULT_LANG).strip() or DEFAULT_LANG
+    try:
+        language = normalize_language(request.form.get("language", DEFAULT_LANG))
+    except ValueError:
+        return Response("Invalid OCR language.", status=400, mimetype="text/plain")
+
     password = request.form.get("password", "")
     recover_method = (
         request.form.get("recover_method", DEFAULT_RECOVER_METHOD).strip()
@@ -250,21 +317,23 @@ def convert() -> Response:
         temp_path = Path(temp_dir)
         input_pdf = temp_path / filename
         upload.save(input_pdf)
+
+        if not validate_pdf_file(input_pdf):
+            return Response("The uploaded file is not a valid PDF.", status=400, mimetype="text/plain")
+
         working_pdf = input_pdf
 
         if action == "recover":
-            if recover_method not in {"default-query", "range", "date", "mask", "custom-query"}:
-                return Response(
-                    "Invalid recover method.",
-                    status=400,
-                    mimetype="text/plain",
-                )
+            if recover_method not in ALLOWED_RECOVER_METHODS:
+                return Response("Invalid recover method.", status=400, mimetype="text/plain")
 
             try:
                 if recover_method == "default-query":
                     min_length = int(recover_min_length)
                     max_length = int(recover_max_length)
                     if min_length < 0 or max_length < 0 or min_length > max_length:
+                        raise ValueError
+                    if max_length > 32:
                         raise ValueError
                     recover_args = [
                         "default-query",
@@ -276,19 +345,17 @@ def convert() -> Response:
                 elif recover_method == "range":
                     start = int(recover_range_start)
                     end = int(recover_range_end)
-                    if start > end:
+                    if start > end or end - start > MAX_RECOVER_RANGE:
                         raise ValueError
-                    recover_args = [
-                        "range",
-                        str(start),
-                        str(end),
-                    ]
+                    recover_args = ["range", str(start), str(end)]
                     if recover_add_zeros:
                         recover_args.append("--add-preceding-zeros")
                 elif recover_method == "date":
                     start = int(recover_date_start)
                     end = int(recover_date_end)
-                    if start > end:
+                    if start > end or end - start > MAX_RECOVER_RANGE:
+                        raise ValueError
+                    if recover_date_format not in ALLOWED_DATE_FORMATS:
                         raise ValueError
                     recover_args = [
                         "date",
@@ -298,10 +365,15 @@ def convert() -> Response:
                         str(end),
                     ]
                 elif recover_method == "mask":
+                    recover_mask = normalize_recover_text(recover_mask, "Mask")
                     if not recover_mask:
                         raise ValueError
                     recover_args = ["mask", recover_mask]
                 else:
+                    recover_custom_query = normalize_recover_text(
+                        recover_custom_query,
+                        "Custom query",
+                    )
                     if not recover_custom_query:
                         raise ValueError
                     recover_args = ["custom-query", recover_custom_query]
@@ -315,13 +387,10 @@ def convert() -> Response:
                 )
 
             try:
-                result = recover_pdf_password_with_pdfrip(
-                    input_pdf,
-                    recover_args,
-                )
-            except RuntimeError as exc:
+                result = recover_pdf_password_with_pdfrip(input_pdf, recover_args)
+            except RuntimeError:
                 return Response(
-                    f"Password recovery failed.\n\n{exc}",
+                    "Password recovery could not complete for this file.",
                     status=500,
                     mimetype="text/plain",
                 )
@@ -341,21 +410,13 @@ def convert() -> Response:
         try:
             working_pdf = prepare_working_pdf(input_pdf, decrypted_pdf, password)
         except subprocess.CalledProcessError as exc:
-            message = (
-                getattr(exc, "stderr", "") or getattr(exc, "stdout", "") or str(exc)
-            ).strip()
+            log_subprocess_failure(exc, "PDF decryption")
             if password:
                 hint = "The provided password did not unlock the PDF."
             else:
-                hint = (
-                    "This PDF requires a non-empty password. Provide it in the "
-                    "password field or use recovery mode."
-                )
-            return Response(
-                f"PDF decryption failed.\n\n{hint}\n\n{message}",
-                status=400,
-                mimetype="text/plain",
-            )
+                hint = "This PDF requires a password before it can be processed."
+            return Response(hint, status=400, mimetype="text/plain")
+
         if action == "decrypt":
             download_name = output_download_name(original_stem, ".decrypted.pdf")
             final_output = temp_path / f"download-{download_name}"
@@ -367,12 +428,16 @@ def convert() -> Response:
         try:
             run_ocr(working_pdf, output_pdf, language)
         except subprocess.CalledProcessError as exc:
+            log_subprocess_failure(exc, "OCR")
             repaired_pdf = temp_path / f"{input_pdf.stem}.ocr.repaired.pdf"
             if output_pdf.exists() and repair_pdf(output_pdf, repaired_pdf):
                 output_pdf = repaired_pdf
             else:
-                message = exc.stderr.strip() or exc.stdout.strip() or str(exc)
-                return Response(f"OCR failed:\n\n{message}", status=500, mimetype="text/plain")
+                return Response(
+                    "OCR could not complete for this file.",
+                    status=500,
+                    mimetype="text/plain",
+                )
 
         download_name = output_download_name(original_stem, ".ocr.pdf")
         final_output = temp_path / f"download-{download_name}"
@@ -382,8 +447,9 @@ def convert() -> Response:
 
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO)
     app.run(
-        host=os.environ.get("HOST", "127.0.0.1"),
+        host=resolve_bind_host(),
         port=int(os.environ.get("PORT", "8765")),
         debug=False,
     )

@@ -10,6 +10,7 @@
     "desktop:dev": "node desktop/run-dev.js",
     "desktop:reset-runtime": "node desktop/reset-runtime.js",
     "smoke:test": "node scripts/smoke-test.mjs",
+    "security:audit": "npm audit --audit-level=high",
     "test:pdf": "node scripts/test-pdf.mjs",
     "desktop:icons": "node scripts/generate-icons.mjs",
     "desktop:icons:mac": "bash scripts/generate-icons.sh && node scripts/generate-icons.mjs",

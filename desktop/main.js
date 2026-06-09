@@ -48,6 +48,33 @@ function getAppIconPath() {
   return null;
 }
 
+function isSafeExternalUrl(url) {
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === "http:" || parsed.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
+function isAllowedAppUrl(url) {
+  try {
+    return new URL(url).origin === new URL(APP_URL).origin;
+  } catch {
+    return false;
+  }
+}
+
+function sanitizeSuggestedFilename(name) {
+  const fallback = "searchable.pdf";
+  const raw = path.basename(String(name || fallback));
+  const cleaned = raw.replace(/[<>:"|?*\x00-\x1f]/g, "_").trim();
+  if (!cleaned.toLowerCase().endsWith(".pdf")) {
+    return fallback;
+  }
+  return cleaned || fallback;
+}
+
 function applyAppIcon() {
   const iconPath = getAppIconPath();
   if (!iconPath) {
@@ -724,7 +751,9 @@ async function bootWindow() {
       preload: getDesktopHtmlPath("preload.js"),
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: false,
+      sandbox: true,
+      webSecurity: true,
+      allowRunningInsecureContent: false,
     },
   });
 
@@ -733,8 +762,22 @@ async function bootWindow() {
   });
 
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    shell.openExternal(url);
+    if (isSafeExternalUrl(url)) {
+      shell.openExternal(url);
+    }
     return { action: "deny" };
+  });
+
+  mainWindow.webContents.on("will-navigate", (event, url) => {
+    if (!isAllowedAppUrl(url)) {
+      event.preventDefault();
+    }
+  });
+
+  mainWindow.webContents.on("will-redirect", (event, url) => {
+    if (!isAllowedAppUrl(url)) {
+      event.preventDefault();
+    }
   });
 
   await mainWindow.loadFile(getDesktopHtmlPath("loading.html"));
@@ -776,7 +819,8 @@ ipcMain.handle("desktop:save-pdf", async (_event, suggestedName, arrayBuffer) =>
     return { ok: false, message: "Main window is not available." };
   }
 
-  const defaultPath = path.join(app.getPath("downloads"), suggestedName || "searchable.pdf");
+  const safeName = sanitizeSuggestedFilename(suggestedName);
+  const defaultPath = path.join(app.getPath("downloads"), safeName);
   const { canceled, filePath } = await dialog.showSaveDialog(mainWindow, {
     defaultPath,
     filters: [{ name: "PDF", extensions: ["pdf"] }],
